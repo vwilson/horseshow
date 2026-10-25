@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(AppTargetFramework)</TargetFramework>
+    <Description>Domain model and scoring engine. No dependencies.</Description>
+  </PropertyGroup>
+</Project>

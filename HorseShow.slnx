@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HorseShow.App/HorseShow.App.csproj" />
+    <Project Path="src/HorseShow.Core/HorseShow.Core.csproj" />
+    <Project Path="src/HorseShow.Data/HorseShow.Data.csproj" />
+    <Project Path="src/HorseShow.Import/HorseShow.Import.csproj" />
+    <Project Path="src/HorseShow.UI/HorseShow.UI.csproj" />
+    <Project Path="src/HorseShow.Web/HorseShow.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HorseShow.Core.Tests/HorseShow.Core.Tests.csproj" />
+    <Project Path="tests/HorseShow.Data.Tests/HorseShow.Data.Tests.csproj" />
+  </Folder>
+</Solution>

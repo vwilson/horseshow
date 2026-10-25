@@ -1,0 +1,47 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # Everything except the MAUI host: fast feedback, runs the test suite.
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore src/HorseShow.Web tests/HorseShow.Core.Tests tests/HorseShow.Data.Tests
+      - run: dotnet build src/HorseShow.Web -c Release --no-restore
+      - run: dotnet test tests/HorseShow.Core.Tests -c Release --no-restore --logger "trx;LogFileName=core.trx"
+      - run: dotnet test tests/HorseShow.Data.Tests -c Release --no-restore --logger "trx;LogFileName=data.trx"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/TestResults/*.trx"
+
+  # The Windows desktop host. Needs the MAUI workload; builds but does not run.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet workload install maui-windows
+      - run: dotnet restore HorseShow.slnx
+      - run: dotnet build HorseShow.slnx -c Release --no-restore
+      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --no-restore -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HorseShow-win-x64
+          path: publish

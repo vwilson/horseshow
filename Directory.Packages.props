@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+    <!-- Bump these together when moving AppTargetFramework to net11.0. -->
+    <DotNetPackagesVersion>10.0.14</DotNetPackagesVersion>
+    <MauiVersion>10.0.120</MauiVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Microsoft -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+
+    <!-- UI -->
+    <PackageVersion Include="MudBlazor" Version="9.11.0" />
+
+    <!-- Import (Phase 3+) -->
+    <PackageVersion Include="CsvHelper" Version="33.1.0" />
+    <PackageVersion Include="ClosedXML" Version="0.105.1" />
+
+    <!-- Tests -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+  </ItemGroup>
+</Project>

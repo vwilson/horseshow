@@ -1,0 +1,17 @@
+@inject DashboardViewService Dashboard
+
+@if (_season is not null)
+{
+    <MudChip T="string" Icon="@Icons.Material.Filled.CalendarMonth" Color="Color.Secondary" Variant="Variant.Filled">
+        @_season.Name
+    </MudChip>
+}
+
+@code {
+    private Season? _season;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _season = await Dashboard.GetActiveSeasonAsync();
+    }
+}

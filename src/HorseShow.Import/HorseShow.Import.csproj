@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(AppTargetFramework)</TargetFramework>
+    <Description>Paste/CSV/XLSX parsing, column mapping, name resolution. Populated in Phase 3.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HorseShow.Data\HorseShow.Data.csproj" />
+  </ItemGroup>
+</Project>

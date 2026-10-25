@@ -1,0 +1,39 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject ThemeService Theme
+
+<MudThemeProvider Theme="Theme.Theme" @bind-IsDarkMode="Theme.IsDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6" Class="ml-2">HorseShow</MudText>
+        <MudSpacer />
+        <SeasonSelector />
+        <MudIconButton Icon="@(Theme.IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                       Color="Color.Inherit" OnClick="Theme.Toggle" title="Toggle theme" />
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="1">
+        <NavMenu />
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    protected override void OnInitialized() => Theme.Changed += StateHasChanged;
+
+    public void Dispose() => Theme.Changed -= StateHasChanged;
+}

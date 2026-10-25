@@ -1,0 +1,50 @@
+@* Shared router. Both hosts render this component; pages live in this assembly. *@
+@inject StartupGate Startup
+@inject HorseShow.UI.Platform.IAppPaths Paths
+
+@if (!_started)
+{
+    <MudThemeProvider />
+    <MudContainer Class="d-flex flex-column align-center justify-center" Style="height: 100vh;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.subtitle1" Class="mt-4">Opening database…</MudText>
+    </MudContainer>
+}
+else if (Startup.Error is not null)
+{
+    <MudThemeProvider />
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+        <MudAlert Severity="Severity.Error" Variant="Variant.Filled">The database could not be opened.</MudAlert>
+        <MudPaper Class="pa-4 mt-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.body2"><b>File:</b> @Paths.DatabasePath</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2"><b>Backups:</b> @Paths.BackupDirectory</MudText>
+            <MudText Typo="Typo.body2" Class="mt-4" Style="white-space: pre-wrap; font-family: monospace;">@Startup.Error.ToString()</MudText>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+    <Router AppAssembly="typeof(Routes).Assembly">
+        <Found Context="routeData">
+            <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <LayoutView Layout="typeof(MainLayout)">
+                <MudContainer Class="mt-8">
+                    <MudAlert Severity="Severity.Warning">There is nothing at this address.</MudAlert>
+                </MudContainer>
+            </LayoutView>
+        </NotFound>
+    </Router>
+}
+
+@code {
+    private bool _started;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Startup.Completed;
+        _started = true;
+    }
+}

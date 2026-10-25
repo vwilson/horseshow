@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <!--
+    MAUI Blazor Hybrid host, Windows only. Builds on Windows with the maui-windows workload:
+      dotnet workload install maui-windows
+      dotnet build src/HorseShow.App
+    On Linux/macOS build src/HorseShow.Web instead; this project is skipped there.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(AppTargetFramework)-windows$(WindowsTargetPlatformVersion)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <EnableDefaultCssItems>false</EnableDefaultCssItems>
+
+    <ApplicationTitle>HorseShow</ApplicationTitle>
+    <ApplicationId>com.vwilson.horseshow</ApplicationId>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+
+    <!-- Unpackaged exe: F5 works without MSIX sideloading / developer mode. Packaging arrives in Phase 5. -->
+    <WindowsPackageType>None</WindowsPackageType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#2E5E4E" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#2E5E4E" BaseSize="128,128" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HorseShow.UI\HorseShow.UI.csproj" />
+  </ItemGroup>
+</Project>

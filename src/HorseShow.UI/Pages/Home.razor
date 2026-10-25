@@ -1,0 +1,59 @@
+@page "/"
+@inject DashboardViewService Dashboard
+
+<MudText Typo="Typo.h4" GutterBottom="true">Dashboard</MudText>
+
+@if (_summary is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_summary.ActiveSeason is null)
+{
+    <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0" Outlined="true">
+        <MudIcon Icon="@Icons.Material.Outlined.EmojiEvents" Style="font-size: 4rem;" Color="Color.Primary" />
+        <MudText Typo="Typo.h5" Class="mt-4">No active season yet</MudText>
+        <MudText Typo="Typo.body1" Class="mt-2 mud-text-secondary" Align="Align.Center">
+            Create a season to start recording shows and results. Importing by paste or file comes in Phase 3.
+        </MudText>
+        <MudButton Href="seasons" Variant="Variant.Filled" Color="Color.Primary" Class="mt-6"
+                   StartIcon="@Icons.Material.Filled.Add">Create a season</MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.overline">Active season</MudText>
+                    <MudText Typo="Typo.h5">@_summary.ActiveSeason.Name</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.overline">Shows</MudText>
+                    <MudText Typo="Typo.h5">@_summary.ShowCount</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="6" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.overline">Results recorded</MudText>
+                    <MudText Typo="Typo.h5">@_summary.ResultCount</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private DashboardSummary? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await Dashboard.GetSummaryAsync();
+    }
+}
