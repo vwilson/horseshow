@@ -1,0 +1,33 @@
+@using HorseShow.Import.Resolution
+@inject ImportSession Session
+
+@if (Session.Plan is { } plan)
+{
+    <div class="d-flex flex-wrap gap-2 align-center mb-3">
+        <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.Check">@Count(plan, ResolutionStatus.Exact) matched exactly</MudChip>
+        <MudChip T="string" Color="Color.Warning" Icon="@Icons.Material.Filled.HelpOutline">@Count(plan, ResolutionStatus.Suggested) need confirming</MudChip>
+        <MudChip T="string" Icon="@Icons.Material.Filled.PersonAdd">@Count(plan, ResolutionStatus.New) new</MudChip>
+        <MudSpacer />
+        <MudSwitch T="bool" @bind-Value="_showExact" Label="Show exact matches" Color="Color.Primary" />
+    </div>
+
+    @if (Count(plan, ResolutionStatus.Suggested) + Count(plan, ResolutionStatus.New) == 0)
+    {
+        <MudAlert Severity="Severity.Success" Dense="true">Every name matched an existing rider or horse. Nothing to decide.</MudAlert>
+    }
+
+    <MudGrid>
+        <MudItem xs="12" lg="6">
+            <ResolutionTable Title="Riders" Items="plan.Riders" ShowExact="_showExact" />
+        </MudItem>
+        <MudItem xs="12" lg="6">
+            <ResolutionTable Title="Horses" Items="plan.Horses" ShowExact="_showExact" />
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private bool _showExact;
+
+    private static int Count(ImportPlan plan, ResolutionStatus s) => plan.Riders.Count(r => r.Status == s) + plan.Horses.Count(h => h.Status == s);
+}

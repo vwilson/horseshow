@@ -19,11 +19,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - run: dotnet restore src/HorseShow.Web tests/HorseShow.Core.Tests tests/HorseShow.Data.Tests tests/HorseShow.UI.Tests
+      - run: dotnet restore src/HorseShow.Web tests/HorseShow.Core.Tests tests/HorseShow.Data.Tests tests/HorseShow.UI.Tests tests/HorseShow.Import.Tests
       - run: dotnet build src/HorseShow.Web -c Release --no-restore
       - run: dotnet test tests/HorseShow.Core.Tests -c Release --no-restore --logger "trx;LogFileName=core.trx"
       - run: dotnet test tests/HorseShow.Data.Tests -c Release --no-restore --logger "trx;LogFileName=data.trx"
       - run: dotnet test tests/HorseShow.UI.Tests -c Release --no-restore --logger "trx;LogFileName=ui.trx"
+      - run: dotnet test tests/HorseShow.Import.Tests -c Release --no-restore --logger "trx;LogFileName=import.trx"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

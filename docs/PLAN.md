@@ -426,10 +426,18 @@ a schedule, recalculates the affected seasons at once; the explicit Recalculate 
 the standings page shows a diff first. Typing a points value in the results grid marks the
 row Manual and the engine leaves it alone; clearing it hands the row back.
 
-**Phase 3: Import, paste first**
+**Phase 3: Import, paste first** (done, and already covers XLSX)
 Tokenizer, structure detection, mapping grid, normalizer, name resolution, preview,
 commit, undo. Paste and CSV only. Mapping profiles. This phase is the longest and gets
 the fixture corpus started.
+As built: CsvHelper for CSV and delimited paste, ClosedXML for XLSX (sheet picker when
+there are several), FuzzySharp token-sort ratio for name suggestions (86+ suggests,
+70+ lists as a candidate), a `MudStepper` wizard. Imports into an existing show match
+classes by number then name and offer skip / replace / add-anyway for duplicate rider+horse
+rows. A confirmed fuzzy match writes the sheet's spelling as an alias. Undo removes the
+batch's results plus any classes and show the batch created that are now empty. Built
+without the real sheet, against six fixture shapes; the README describes the three places
+a new format might need a line.
 
 **Phase 4: Import, XLSX and ergonomics**
 ClosedXML reader with sheet selection, wide-layout support if needed by then,

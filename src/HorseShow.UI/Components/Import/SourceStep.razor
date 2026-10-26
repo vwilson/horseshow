@@ -1,0 +1,104 @@
+@inject ImportSession Session
+@inject ShowsViewService Shows
+@inject HorseShow.UI.Platform.IClipboardService Clipboard
+@inject ISnackbar Snackbar
+
+<MudGrid>
+    <MudItem xs="12" md="5">
+        <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Which show?</MudText>
+            <MudSelect T="int?" @bind-Value="Session.ShowId" Label="Show" Clearable="true" Dense="true" data-testid="target-show">
+                <MudSelectItem T="int?" Value="null">New show…</MudSelectItem>
+                @foreach (var s in _shows)
+                {
+                    <MudSelectItem T="int?" Value="s.Show.Id">@s.Show.StartDate.ToString("MMM d") · @s.Show.Name</MudSelectItem>
+                }
+            </MudSelect>
+            @if (Session.ShowId is null)
+            {
+                <MudTextField @bind-Value="Session.NewShowName" Label="New show name" Class="mt-3" Immediate="true" data-testid="new-show-name" />
+                <MudDatePicker @bind-Date="Session.NewShowDate" Label="Show date" Editable="true" Class="mt-2" />
+            }
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-3">
+                Importing into an existing show matches classes by number, then by name, and lets you choose what to do with duplicates.
+            </MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" md="7">
+        <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+            <MudTabs @bind-ActivePanelIndex="_tab" Elevation="0" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pt-4">
+                <MudTabPanel Text="Paste" Icon="@Icons.Material.Filled.ContentPaste">
+                    <MudTextField @bind-Value="Session.RawText" Lines="12" Variant="Variant.Outlined" Immediate="true"
+                                  Placeholder="Paste results here. Tables copied from Excel, a website, or a PDF all work; class headings like “Class 12 - Hunter Under Saddle” are picked up automatically."
+                                  Style="font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem" data-testid="paste-box" />
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ContentPaste" OnClick="PasteFromClipboard">Paste from clipboard</MudButton>
+                        <MudButton Variant="Variant.Text" OnClick="() => Session.RawText = null">Clear</MudButton>
+                    </div>
+                </MudTabPanel>
+                <MudTabPanel Text="File" Icon="@Icons.Material.Filled.UploadFile">
+                    <MudFileUpload T="IBrowserFile" FilesChanged="OnFile" Accept=".csv,.tsv,.txt,.xlsx,.xlsm" MaxFileSize="20_000_000">
+                        <CustomContent Context="upload">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FolderOpen" OnClick="upload.OpenFilePickerAsync" data-testid="choose-file">Choose a CSV or XLSX file</MudButton>
+                        </CustomContent>
+                    </MudFileUpload>
+                    @if (Session.FileName is not null)
+                    {
+                        <MudChip T="string" Class="mt-3" Icon="@Icons.Material.Filled.Description" OnClose="ClearFile">@Session.FileName (@((Session.FileBytes?.Length ?? 0) / 1024) KB)</MudChip>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [Parameter] public int SeasonId { get; set; }
+
+    private List<ShowRow> _shows = [];
+    private int _tab;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _shows = await Shows.ListAsync(SeasonId);
+        _tab = Session.Source == ImportSource.Paste ? 0 : 1;
+    }
+
+    /// <summary>Which input the user is on decides the source for parsing.</summary>
+    public void Sync() => Session.Source = _tab == 0 ? ImportSource.Paste : (Session.FileName is null ? ImportSource.Csv : ImportViewService.SourceFor(Session.FileName));
+
+    private async Task PasteFromClipboard()
+    {
+        var text = await Clipboard.GetTextAsync();
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            Snackbar.Add("Nothing readable on the clipboard here. Click the box and press Ctrl+V instead.", Severity.Info);
+            return;
+        }
+
+        Session.RawText = text;
+    }
+
+    private async Task OnFile(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        await using var stream = file.OpenReadStream(20_000_000);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        Session.FileBytes = ms.ToArray();
+        Session.FileName = file.Name;
+        Session.SheetName = null;
+        Session.Source = ImportViewService.SourceFor(file.Name);
+        _tab = 1;
+    }
+
+    private void ClearFile()
+    {
+        Session.FileBytes = null;
+        Session.FileName = null;
+    }
+}

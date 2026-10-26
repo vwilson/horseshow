@@ -1,2 +1,196 @@
 @page "/import"
-<PlaceholderPage Title="Import results" Phase="3" Description="Paste a results table or load a CSV/XLSX file, map columns, resolve names, preview, commit." />
+@inject ImportSession Session
+@inject ImportViewService ImportSvc
+@inject ActiveSeasonService Active
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Import results</MudText>
+    <MudSpacer />
+    @if (Session.Summary is null && (Session.HasInput || Session.Document is not null))
+    {
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.RestartAlt" OnClick="StartOver">Start over</MudButton>
+    }
+</div>
+
+@if (_season is null)
+{
+    <MudAlert Severity="Severity.Info">Create or activate a season first. <MudLink Href="seasons">Go to seasons</MudLink></MudAlert>
+}
+else if (Session.Summary is { } done)
+{
+    <MudPaper Class="pa-6" Outlined="true" Elevation="0">
+        <div class="d-flex align-center gap-3 mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size: 2.5rem" />
+            <MudText Typo="Typo.h5">Imported</MudText>
+        </div>
+        <MudSimpleTable Dense="true" Elevation="0" Style="max-width: 420px">
+            <tbody>
+                <tr><td>Results added</td><td style="text-align:right"><b>@done.ResultsAdded</b></td></tr>
+                @if (done.ResultsReplaced > 0) { <tr><td>Results replaced</td><td style="text-align:right">@done.ResultsReplaced</td></tr> }
+                @if (done.ResultsSkipped > 0) { <tr><td>Rows skipped</td><td style="text-align:right">@done.ResultsSkipped</td></tr> }
+                <tr><td>Classes created</td><td style="text-align:right">@done.ClassesCreated</td></tr>
+                <tr><td>New riders · horses</td><td style="text-align:right">@done.RidersCreated · @done.HorsesCreated</td></tr>
+            </tbody>
+        </MudSimpleTable>
+        <div class="d-flex gap-2 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"shows/{done.ShowId}")" EndIcon="@Icons.Material.Filled.ArrowForward" data-testid="open-show">Open the show</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="standings">Standings</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="import/history">Import history</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="StartOver">Import another</MudButton>
+        </div>
+    </MudPaper>
+}
+else
+{
+    <MudStepper @ref="_stepper" @bind-ActiveIndex="_step" OnPreviewInteraction="OnPreview"
+                CompleteButtonIcon="@Icons.Material.Filled.Check" NonLinear="false" ScrollableNavigation="false">
+        <ChildContent>
+            <MudStep Title="Source" SecondaryText="Paste or choose a file">
+                @if (_step == 0) { <SourceStep SeasonId="_season.Id" @ref="_source" /> }
+            </MudStep>
+            <MudStep Title="Columns" SecondaryText="Say what each column means">
+                @if (_step == 1) { <MappingStep OnChanged="StateHasChanged" /> }
+            </MudStep>
+            <MudStep Title="Names" SecondaryText="Match riders and horses">
+                @if (_step == 2) { <NamesStep /> }
+            </MudStep>
+            <MudStep Title="Preview" SecondaryText="Check, then import">
+                @if (_step == 3) { <PreviewStep /> }
+            </MudStep>
+        </ChildContent>
+    </MudStepper>
+    @if (_busy)
+    {
+        <MudOverlay Visible="true" DarkBackground="true" Absolute="false">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        </MudOverlay>
+    }
+}
+
+@code {
+    private Season? _season;
+    private MudStepper _stepper = default!;
+    private SourceStep? _source;
+    private int _step;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _season = await Active.GetAsync();
+        if (Session.Summary is not null)
+        {
+            Session.Reset();
+        }
+    }
+
+    private async Task OnPreview(StepperInteractionEventArgs e)
+    {
+        // Only forward moves do work; backing up keeps the state the user already shaped.
+        if (e.Action == StepAction.Activate && e.StepIndex <= _step)
+        {
+            return;
+        }
+
+        if (e.Action is StepAction.Skip or StepAction.Reset)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        _busy = true;
+        StateHasChanged();
+        try
+        {
+            switch (_step)
+            {
+                case 0:
+                    _source?.Sync();
+                    if (!Session.HasInput)
+                    {
+                        Fail(e, "Paste some results or choose a file first.");
+                        return;
+                    }
+
+                    if (Session.ShowId is null && string.IsNullOrWhiteSpace(Session.NewShowName))
+                    {
+                        Fail(e, "Pick a show or give the new show a name.");
+                        return;
+                    }
+
+                    try
+                    {
+                        Session.Document = ImportSvc.Parse(Session);
+                    }
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
+                    {
+                        Fail(e, $"Could not read that: {ex.Message}");
+                        return;
+                    }
+
+                    if (Session.Document.DataRowCount == 0)
+                    {
+                        Fail(e, "No result rows were found. Check that the text has at least two columns per row.");
+                        return;
+                    }
+
+                    Session.Mapping ??= ImportPipeline.ProposeMapping(Session.Document);
+                    break;
+
+                case 1:
+                    var hard = Session.Mapping!.Validate(Session.Document!.Blocks.Any(b => b.Header is not null)).Where(v => !v.Contains("one class")).ToList();
+                    if (hard.Count > 0)
+                    {
+                        Fail(e, hard[0]);
+                        return;
+                    }
+
+                    Session.Plan = await ImportSvc.BuildPlanAsync(Session, _season!.Id);
+                    if (Session.Plan.ImportableRowCount == 0)
+                    {
+                        Fail(e, "No rows can be imported with this mapping. " + (Session.Plan.Classes.SelectMany(c => c.Rows).SelectMany(r => r.Issues).FirstOrDefault()?.Message ?? ""));
+                        return;
+                    }
+
+                    break;
+
+                case 2:
+                    break;
+
+                case 3 when e.Action == StepAction.Complete:
+                    try
+                    {
+                        Session.Summary = await ImportSvc.CommitAsync(Session);
+                        Snackbar.Add($"Imported {Session.Summary.ResultsAdded + Session.Summary.ResultsReplaced} result(s).", Severity.Success);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        Fail(e, ex.Message);
+                    }
+
+                    break;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Fail(StepperInteractionEventArgs e, string message)
+    {
+        e.Cancel = true;
+        Snackbar.Add(message, Severity.Warning);
+    }
+
+    private async Task StartOver()
+    {
+        Session.Reset();
+        _step = 0;
+        if (_stepper is not null)
+        {
+            await _stepper.ResetAsync();
+        }
+    }
+}

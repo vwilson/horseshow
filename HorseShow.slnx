@@ -10,6 +10,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/HorseShow.Core.Tests/HorseShow.Core.Tests.csproj" />
     <Project Path="tests/HorseShow.Data.Tests/HorseShow.Data.Tests.csproj" />
+    <Project Path="tests/HorseShow.Import.Tests/HorseShow.Import.Tests.csproj" />
     <Project Path="tests/HorseShow.TestSupport/HorseShow.TestSupport.csproj" />
     <Project Path="tests/HorseShow.UI.Tests/HorseShow.UI.Tests.csproj" />
   </Folder>

@@ -11,5 +11,8 @@ public class Show
     public string? Venue { get; set; }
     public string? Notes { get; set; }
 
+    /// <summary>Set when an import created this show, so undoing that import can remove it if still empty.</summary>
+    public int? CreatedByImportBatchId { get; set; }
+
     public ICollection<ShowClass> Classes { get; set; } = [];
 }

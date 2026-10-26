@@ -405,6 +405,9 @@ namespace HorseShow.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("CreatedByImportBatchId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateOnly?>("EndDate")
                         .HasColumnType("TEXT");
 
@@ -428,6 +431,8 @@ namespace HorseShow.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CreatedByImportBatchId");
+
                     b.HasIndex("SeasonId", "StartDate");
 
                     b.ToTable("Shows");
@@ -444,6 +449,9 @@ namespace HorseShow.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("ClassType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CreatedByImportBatchId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("DivisionId")
@@ -471,6 +479,8 @@ namespace HorseShow.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedByImportBatchId");
 
                     b.HasIndex("DivisionId");
 

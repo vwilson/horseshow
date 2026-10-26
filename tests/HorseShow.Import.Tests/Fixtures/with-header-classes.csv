@@ -1,0 +1,7 @@
+Class,Class Name,Place,Rider,Horse,Score,Points
+12,Hunter Under Saddle,1,"Smith, Jane",Blue Moon,84.5,10
+12,Hunter Under Saddle,2,Bob Jones,Red Sky,81,6
+12,Hunter Under Saddle,3,Ann Lee,Grey Ghost,78.25,4
+14,Equitation on the Flat,1,Bob Jones,Red Sky,,10
+14,Equitation on the Flat,2,"Smith, Jane",Blue Moon,,6
+14,Equitation on the Flat,DQ,Ann Lee,Grey Ghost,,

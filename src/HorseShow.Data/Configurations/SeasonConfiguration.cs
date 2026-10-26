@@ -29,6 +29,7 @@ public class ShowConfiguration : IEntityTypeConfiguration<Show>
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.Venue).HasMaxLength(200);
         b.HasIndex(x => new { x.SeasonId, x.StartDate });
+        b.HasIndex(x => x.CreatedByImportBatchId);
         b.HasMany(x => x.Classes).WithOne(x => x.Show).HasForeignKey(x => x.ShowId).OnDelete(DeleteBehavior.Cascade);
     }
 }
@@ -51,6 +52,7 @@ public class ShowClassConfiguration : IEntityTypeConfiguration<ShowClass>
         b.Property(x => x.ClassNumber).HasMaxLength(20);
         b.Property(x => x.JudgeName).HasMaxLength(200);
         b.HasIndex(x => new { x.ShowId, x.SortOrder });
+        b.HasIndex(x => x.CreatedByImportBatchId);
         b.HasOne(x => x.Division).WithMany().HasForeignKey(x => x.DivisionId).OnDelete(DeleteBehavior.SetNull);
         b.HasMany(x => x.Results).WithOne(x => x.ShowClass).HasForeignKey(x => x.ShowClassId).OnDelete(DeleteBehavior.Cascade);
     }

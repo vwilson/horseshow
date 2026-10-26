@@ -27,6 +27,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ParticipantsViewService>();
         services.AddScoped<StandingsViewService>();
         services.AddScoped<SchedulesViewService>();
+        services.AddScoped<ImportViewService>();
+        services.AddScoped<ImportSession>();
         return services;
     }
 }

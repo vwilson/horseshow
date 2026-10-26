@@ -22,5 +22,8 @@ public class ShowClass
     public string? Notes { get; set; }
     public int SortOrder { get; set; }
 
+    /// <summary>Set when an import created this class, so undoing that import can remove it if still empty.</summary>
+    public int? CreatedByImportBatchId { get; set; }
+
     public ICollection<Result> Results { get; set; } = [];
 }

@@ -1,0 +1,140 @@
+@using HorseShow.Import.Mapping
+@inject ImportSession Session
+@inject ImportViewService Import
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+@if (Session.Document is { } doc && Session.Mapping is { } mapping)
+{
+    <div class="d-flex flex-wrap gap-2 align-center mb-3">
+        <MudChip T="string" Icon="@Icons.Material.Filled.TableRows">@doc.DataRowCount result rows</MudChip>
+        <MudChip T="string" Icon="@Icons.Material.Filled.ViewColumn">@doc.ColumnCount columns · @doc.Table.DelimiterName</MudChip>
+        <MudChip T="string" Icon="@Icons.Material.Filled.Title" Color="@(doc.HeaderRow is null ? Color.Default : Color.Success)">@(doc.HeaderRow is null ? "no header row" : "header row found")</MudChip>
+        @if (doc.Blocks.Any(b => b.Header is not null))
+        {
+            <MudChip T="string" Icon="@Icons.Material.Filled.Segment" Color="Color.Success">@doc.Blocks.Count(b => b.Header is not null) class heading(s)</MudChip>
+        }
+        @if (doc.Table.SheetNames.Count > 1)
+        {
+            <MudSelect T="string" Value="Session.SheetName ?? doc.Table.SheetName" ValueChanged="ChangeSheet" Label="Sheet" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="width: 200px">
+                @foreach (var s in doc.Table.SheetNames)
+                {
+                    <MudSelectItem T="string" Value="s">@s</MudSelectItem>
+                }
+            </MudSelect>
+        }
+        <MudSpacer />
+        <MudSelect T="int?" Value="Session.ProfileId" ValueChanged="ApplyProfile" Label="Saved mapping" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width: 220px" Clearable="true">
+            @foreach (var p in _profiles)
+            {
+                <MudSelectItem T="int?" Value="p.Id">@p.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Save" OnClick="SaveProfile">Save mapping…</MudButton>
+    </div>
+
+    @foreach (var v in mapping.Validate(doc.Blocks.Any(b => b.Header is not null)))
+    {
+        <MudAlert Severity="@(v.Contains("one class") ? Severity.Info : Severity.Warning)" Dense="true" Class="mb-2">@v</MudAlert>
+    }
+
+    <MudSimpleTable Dense="true" Hover="true" Elevation="0" Outlined="true">
+        <thead>
+            <tr><th style="width: 60px">Col</th><th>Header</th><th>Sample values</th><th style="width: 260px">Meaning</th></tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < doc.ColumnCount; i++)
+            {
+                var col = i;
+                var confidence = mapping.Confidence.TryGetValue(col, out var c) ? c : (double?)null;
+                <tr>
+                    <td class="mud-text-secondary">@(col + 1)</td>
+                    <td>@(doc.HeaderText(col) is { Length: > 0 } h ? h : "—")</td>
+                    <td class="mud-text-secondary" style="max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">@string.Join("  ·  ", doc.Samples(col))</td>
+                    <td>
+                        <div class="d-flex align-center gap-2">
+                            <MudSelect T="ImportField" Value="mapping.FieldFor(col)" ValueChanged="f => SetField(col, f)" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width: 200px">
+                                @foreach (var f in Enum.GetValues<ImportField>())
+                                {
+                                    <MudSelectItem Value="f">@ImportFieldInfo.Label(f)</MudSelectItem>
+                                }
+                            </MudSelect>
+                            @if (confidence is < 0.7 && mapping.FieldFor(col) != ImportField.Ignore)
+                            {
+                                <MudTooltip Text="Guessed from the values; check it"><MudIcon Icon="@Icons.Material.Filled.HelpOutline" Size="Size.Small" Color="Color.Warning" /></MudTooltip>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+
+    @if (doc.Blocks.Any(b => b.Header is not null))
+    {
+        <MudText Typo="Typo.subtitle2" Class="mt-4">Classes found</MudText>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+            @foreach (var b in doc.Blocks)
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@(b.Header?.Display ?? "(no heading)") · @b.Rows.Count</MudChip>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<MappingProfile> _profiles = [];
+
+    protected override async Task OnInitializedAsync() => _profiles = await Import.ListProfilesAsync();
+
+    private async Task SetField(int col, ImportField field)
+    {
+        Session.Mapping!.Set(col, field);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ApplyProfile(int? id)
+    {
+        Session.ProfileId = id;
+        if (id is int pid && _profiles.FirstOrDefault(p => p.Id == pid) is { } profile)
+        {
+            Session.Mapping = ImportViewService.ApplyProfile(profile, Session.Document!);
+            if (Session.Mapping.Fields.Count == 0)
+            {
+                Snackbar.Add("That mapping did not match any columns here. Auto-mapping instead.", Severity.Info);
+                Session.Mapping = ImportPipeline.ProposeMapping(Session.Document!);
+            }
+        }
+        else
+        {
+            Session.Mapping = ImportPipeline.ProposeMapping(Session.Document!);
+        }
+
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task SaveProfile()
+    {
+        var current = _profiles.FirstOrDefault(p => p.Id == Session.ProfileId);
+        var parameters = new DialogParameters<NameDialog> { { x => x.Label, "Mapping name" }, { x => x.Value, current?.Name ?? Session.FileName ?? string.Empty } };
+        var dialog = await DialogService.ShowAsync<NameDialog>("Save mapping", parameters, new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: string name } && name.Trim().Length > 0)
+        {
+            var saved = await Import.SaveProfileAsync(name, Session.Mapping!, Session.Document!);
+            Session.ProfileId = saved.Id;
+            _profiles = await Import.ListProfilesAsync();
+            Snackbar.Add($"Mapping \"{saved.Name}\" saved. It will be offered on the next import.", Severity.Success);
+        }
+    }
+
+    private async Task ChangeSheet(string sheet)
+    {
+        Session.SheetName = sheet;
+        Session.Document = Import.Parse(Session);
+        Session.Mapping = ImportPipeline.ProposeMapping(Session.Document);
+        await OnChanged.InvokeAsync();
+    }
+}

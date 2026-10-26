@@ -1,9 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>$(AppTargetFramework)</TargetFramework>
-    <Description>Paste/CSV/XLSX parsing, column mapping, name resolution. Populated in Phase 3.</Description>
+    <Description>Paste/CSV/XLSX parsing, column mapping, normalization, name resolution, commit and undo.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\HorseShow.Data\HorseShow.Data.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" />
+    <PackageReference Include="ClosedXML" />
+    <PackageReference Include="FuzzySharp" />
   </ItemGroup>
 </Project>

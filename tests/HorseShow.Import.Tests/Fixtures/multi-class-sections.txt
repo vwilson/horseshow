@@ -1,0 +1,22 @@
+Spring Classic Horse Show - Results
+Judge: Pat Example
+
+Class 12 - Hunter Under Saddle (8 entries)
+Place	Back #	Horse	Rider
+1	204	Blue Moon	Jane Smith
+2	117	Red Sky	Bob Jones
+3	88	Grey Ghost	Ann Lee
+4	301	Copper Penny	Sean O'Brien
+
+Class 14: Equitation on the Flat
+Place	Back #	Horse	Rider
+1	117	Red Sky	Bob Jones
+2	204	Blue Moon	Jane Smith
+SCR	88	Grey Ghost	Ann Lee
+
+#15 Walk-Trot Pleasure 11 & Under
+Entries: 3
+1st	52	Midnight	Lily Chen
+2nd	61	Buttercup	Noah Park
+3rd	70	Dusty	Mia Flores
+Page 1 of 1
