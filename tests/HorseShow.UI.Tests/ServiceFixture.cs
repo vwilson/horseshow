@@ -12,6 +12,8 @@ public sealed class ServiceFixture : IAsyncDisposable
     public ShowsViewService Shows { get; }
     public ParticipantsViewService Participants { get; }
     public DashboardViewService Dashboard { get; }
+    public StandingsViewService Standings { get; }
+    public SchedulesViewService Schedules { get; }
 
     private ServiceFixture()
     {
@@ -19,7 +21,9 @@ public sealed class ServiceFixture : IAsyncDisposable
         Seasons = new SeasonsViewService(Db.Factory, Active);
         Shows = new ShowsViewService(Db.Factory);
         Participants = new ParticipantsViewService(Db.Factory);
-        Dashboard = new DashboardViewService(Db.Factory, Active);
+        Standings = new StandingsViewService(Db.Factory);
+        Schedules = new SchedulesViewService(Db.Factory);
+        Dashboard = new DashboardViewService(Db.Factory, Active, Standings);
     }
 
     public static async Task<ServiceFixture> CreateAsync()

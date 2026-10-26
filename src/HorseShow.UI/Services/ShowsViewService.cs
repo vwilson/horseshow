@@ -71,6 +71,10 @@ public sealed class ShowsViewService(IDbContextFactory<HorseShowDbContext> facto
 
         edit.ApplyTo(cls);
         await db.SaveChangesAsync(ct);
+
+        // Entry count or division may have changed, and both feed the points formula.
+        await PointsRecalculator.RecalculateClassAsync(db, cls.Id, ct);
+        await db.SaveChangesAsync(ct);
         return cls;
     }
 
@@ -160,15 +164,33 @@ public sealed class ShowsViewService(IDbContextFactory<HorseShowDbContext> facto
             result.Points = row.Points;
             result.PointsSource = PointsSource.Manual;
         }
+        else if (result.PointsSource == PointsSource.Manual)
+        {
+            // Override cleared in the grid: hand the result back to the engine.
+            result.PointsSource = PointsSource.Computed;
+        }
 
         await db.SaveChangesAsync(ct);
+
+        // The whole class, not just this row: with no recorded entry count the row count is the
+        // entry count, so one new placing can move everyone's points under an entry-scaled schedule.
+        await PointsRecalculator.RecalculateClassAsync(db, result.ShowClassId, ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+
+        await db.Entry(result).ReloadAsync(ct);
         return ResultRow.From(result);
     }
 
     public async Task DeleteResultAsync(int id, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
+        var classId = await db.Results.Where(r => r.Id == id).Select(r => (int?)r.ShowClassId).FirstOrDefaultAsync(ct);
         await db.Results.Where(r => r.Id == id).ExecuteDeleteAsync(ct);
+        if (classId is int cid)
+        {
+            await PointsRecalculator.RecalculateClassAsync(db, cid, ct);
+            await db.SaveChangesAsync(ct);
+        }
     }
 }

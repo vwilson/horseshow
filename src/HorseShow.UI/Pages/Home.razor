@@ -88,6 +88,32 @@ else
             </MudPaper>
         </MudItem>
         <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4 mb-3" Outlined="true" Elevation="0">
+                <div class="d-flex align-center mb-1">
+                    <MudText Typo="Typo.h6">Leaders</MudText>
+                    <MudSpacer />
+                    <MudButton Size="Size.Small" Href="standings" EndIcon="@Icons.Material.Filled.ArrowForward">Standings</MudButton>
+                </div>
+                @if (_summary.Leaders.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No scored results yet.</MudText>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            @foreach (var l in _summary.Leaders)
+                            {
+                                <tr>
+                                    <td style="width: 2em" class="mud-text-secondary">@l.Rank</td>
+                                    <td>@l.Name@(l.SecondaryName is null ? "" : $" / {l.SecondaryName}")</td>
+                                    <td style="text-align:right"><b>@l.CountedPoints.ToString("0.###")</b></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudPaper>
             <MudPaper Class="pa-4" Outlined="true" Elevation="0">
                 <MudText Typo="Typo.h6" GutterBottom="true">Quick actions</MudText>
                 <MudStack Spacing="1">

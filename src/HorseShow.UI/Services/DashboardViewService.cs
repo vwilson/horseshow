@@ -4,16 +4,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HorseShow.UI.Services;
 
-public sealed record DashboardSummary(Season? ActiveSeason, int ShowCount, int ResultCount, int RiderCount, int HorseCount, List<ShowRow> RecentShows);
+public sealed record DashboardSummary(Season? ActiveSeason, int ShowCount, int ResultCount, int RiderCount, int HorseCount, List<ShowRow> RecentShows, IReadOnlyList<HorseShow.Core.Scoring.StandingLine> Leaders);
 
-public sealed class DashboardViewService(IDbContextFactory<HorseShowDbContext> factory, ActiveSeasonService active)
+public sealed class DashboardViewService(IDbContextFactory<HorseShowDbContext> factory, ActiveSeasonService active, StandingsViewService standings)
 {
     public async Task<DashboardSummary> GetSummaryAsync(CancellationToken ct = default)
     {
         var season = await active.GetAsync(ct);
         if (season is null)
         {
-            return new DashboardSummary(null, 0, 0, 0, 0, []);
+            return new DashboardSummary(null, 0, 0, 0, 0, [], []);
         }
 
         await using var db = await factory.CreateDbContextAsync(ct);
@@ -29,6 +29,8 @@ public sealed class DashboardViewService(IDbContextFactory<HorseShowDbContext> f
             .Select(s => new ShowRow(s, s.Classes.Count, s.Classes.SelectMany(c => c.Results).Count()))
             .ToListAsync(ct);
 
-        return new DashboardSummary(season, shows, results, riders, horses, recent);
+        var page = await standings.GetAsync(season.Id, null, null, ct);
+        var leaders = page?.Lines.Where(l => l.Eligible).Take(5).ToList() ?? [];
+        return new DashboardSummary(season, shows, results, riders, horses, recent, leaders);
     }
 }

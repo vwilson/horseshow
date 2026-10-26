@@ -1,2 +1,222 @@
 @page "/standings"
-<PlaceholderPage Title="Standings" Phase="2" Description="Season standings by rider, horse, or combination, with drill-down and export." />
+@implements IDisposable
+@using HorseShow.Core.Scoring
+@inject StandingsViewService StandingsSvc
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<div class="d-flex align-center mb-4 gap-3 flex-wrap">
+    <MudText Typo="Typo.h4">Standings</MudText>
+    <MudSpacer />
+    @if (_page is not null)
+    {
+        <MudSelect T="int?" Value="_divisionId" ValueChanged="OnDivisionChanged" Label="Division" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width: 220px" Dense="true">
+            <MudSelectItem T="int?" Value="null">Overall (all classes)</MudSelectItem>
+            @foreach (var d in _page.Divisions)
+            {
+                <MudSelectItem T="int?" Value="d.Id">@d.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="StandingsBasis" Value="_basis" ValueChanged="OnBasisChanged" Label="By" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width: 180px" Dense="true">
+            <MudSelectItem Value="StandingsBasis.Rider">Rider</MudSelectItem>
+            <MudSelectItem Value="StandingsBasis.Horse">Horse</MudSelectItem>
+            <MudSelectItem Value="StandingsBasis.Combination">Rider + horse</MudSelectItem>
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Calculate" OnClick="Recalculate" data-testid="recalc">Recalculate points</MudButton>
+    }
+</div>
+
+@if (_season is null)
+{
+    <MudAlert Severity="Severity.Info">Create or activate a season first. <MudLink Href="seasons">Go to seasons</MudLink></MudAlert>
+}
+else if (_page is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    @if (!_page.HasSchedule)
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-3">
+            @_season.Name has no point schedule, so nothing scores. Set a default on the
+            <MudLink Href="@($"seasons/{_season.Id}")">season page</MudLink> or on a division.
+        </MudAlert>
+    }
+    @if (_page.FallbackEntryCountClasses > 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
+            @_page.FallbackEntryCountClasses class(es) have no recorded entry count; the number of results is used instead.
+            That undercounts when only the top placings were recorded.
+        </MudAlert>
+    }
+    @if (_divisionId is null && _page.UnassignedClasses > 0 && _page.Divisions.Count > 0)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-3" Dense="true">
+            @_page.UnassignedClasses class(es) with results are not assigned to a division and only appear in the overall view.
+        </MudAlert>
+    }
+
+    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+        @RulesText()
+    </MudText>
+
+    <MudTable T="StandingLine" Items="_page.Lines" Hover="true" Dense="true" Elevation="0" Outlined="true"
+              OnRowClick="ToggleRow" RowClass="cursor-pointer" RowStyleFunc="@((l, i) => l.Eligible ? "" : "opacity: 0.55")">
+        <HeaderContent>
+            <MudTh Style="width: 60px">#</MudTh>
+            <MudTh>@(_basis == StandingsBasis.Horse ? "Horse" : "Rider")</MudTh>
+            @if (_basis == StandingsBasis.Combination)
+            {
+                <MudTh>Horse</MudTh>
+            }
+            <MudTh Style="text-align:right">Shows</MudTh>
+            <MudTh Style="text-align:right">Classes</MudTh>
+            <MudTh Style="text-align:right">1st</MudTh>
+            <MudTh Style="text-align:right">2nd</MudTh>
+            <MudTh Style="text-align:right">3rd</MudTh>
+            @if (_season.TopNShowsCounted is not null)
+            {
+                <MudTh Style="text-align:right">Total</MudTh>
+            }
+            <MudTh Style="text-align:right"><b>Points</b></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="#">@context.Rank</MudTd>
+            <MudTd DataLabel="Name">
+                @context.Name
+                @if (!context.Eligible)
+                {
+                    <MudTooltip Text="@($"Fewer than {_season.MinShowsForAward} shows")">
+                        <MudChip T="string" Size="Size.Small" Class="ml-2">not eligible</MudChip>
+                    </MudTooltip>
+                }
+            </MudTd>
+            @if (_basis == StandingsBasis.Combination)
+            {
+                <MudTd DataLabel="Horse">@context.SecondaryName</MudTd>
+            }
+            <MudTd Style="text-align:right">@context.Shows</MudTd>
+            <MudTd Style="text-align:right">@context.Classes</MudTd>
+            <MudTd Style="text-align:right">@context.Firsts</MudTd>
+            <MudTd Style="text-align:right">@context.Seconds</MudTd>
+            <MudTd Style="text-align:right">@context.Thirds</MudTd>
+            @if (_season.TopNShowsCounted is not null)
+            {
+                <MudTd Style="text-align:right" Class="mud-text-secondary">@Pts(context.TotalPoints)</MudTd>
+            }
+            <MudTd Style="text-align:right"><b>@Pts(context.CountedPoints)</b></MudTd>
+        </RowTemplate>
+        <ChildRowContent>
+            @if (_open.Contains(context.Key))
+            {
+                <MudTr>
+                    <td colspan="12" class="pa-0">
+                        <MudPaper Class="pa-3 ml-12" Elevation="0" Square="true">
+                            <MudText Typo="Typo.subtitle2" Class="mb-1">Per show</MudText>
+                            <MudSimpleTable Dense="true" Elevation="0" Style="max-width: 640px">
+                                <thead>
+                                    <tr><th>Date</th><th>Show</th><th style="text-align:right">Classes</th><th style="text-align:right">Points</th><th></th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var s in context.PerShow)
+                                    {
+                                        <tr style="@(s.Counted ? "" : "opacity: 0.55")">
+                                            <td>@s.Date.ToString("MMM d")</td>
+                                            <td><MudLink Href="@($"shows/{s.ShowId}")">@s.ShowName</MudLink></td>
+                                            <td style="text-align:right">@s.Classes</td>
+                                            <td style="text-align:right">@Pts(s.Points)</td>
+                                            <td>@(s.Counted ? "" : "not counted")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        </MudPaper>
+                    </td>
+                </MudTr>
+            }
+        </ChildRowContent>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary">No scored results yet@(_divisionId is null ? "" : " in this division").</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    private Season? _season;
+    private StandingsPage? _page;
+    private StandingsBasis _basis;
+    private int? _divisionId;
+    private readonly HashSet<string> _open = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Active.Changed += OnSeasonChanged;
+        _season = await Active.GetAsync();
+        if (_season is not null)
+        {
+            _basis = _season.StandingsBasis;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _page = _season is null ? null : await StandingsSvc.GetAsync(_season.Id, _basis, _divisionId);
+    }
+
+    private void OnSeasonChanged() => InvokeAsync(async () =>
+    {
+        _season = Active.Current;
+        _basis = _season?.StandingsBasis ?? _basis;
+        _divisionId = null;
+        await LoadAsync();
+        StateHasChanged();
+    });
+
+    public void Dispose() => Active.Changed -= OnSeasonChanged;
+
+    private async Task OnDivisionChanged(int? id) { _divisionId = id; await LoadAsync(); }
+
+    private async Task OnBasisChanged(StandingsBasis b) { _basis = b; await LoadAsync(); }
+
+    private void ToggleRow(TableRowClickEventArgs<StandingLine> e)
+    {
+        var key = e.Item!.Key;
+        if (!_open.Remove(key)) _open.Add(key);
+    }
+
+    private static string Pts(decimal v) => v.ToString("0.###");
+
+    private string RulesText()
+    {
+        var parts = new List<string> { $"Standings by {_basis.ToString().ToLowerInvariant()}" };
+        if (_season!.TopNShowsCounted is int n) parts.Add($"best {n} shows count");
+        if (_season.MinShowsForAward is int m) parts.Add($"minimum {m} shows to be eligible");
+        parts.Add("ties broken by firsts, seconds, thirds, then shows attended");
+        return string.Join(" · ", parts) + ".";
+    }
+
+    private async Task Recalculate()
+    {
+        var changes = await StandingsSvc.PreviewRecalculationAsync(_season!.Id);
+        if (changes.Count == 0)
+        {
+            Snackbar.Add("All points are already up to date.", Severity.Info);
+            return;
+        }
+
+        var parameters = new DialogParameters<RecalculateDialog> { { x => x.Changes, changes } };
+        var dialog = await DialogService.ShowAsync<RecalculateDialog>("Recalculate points", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true });
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            var n = await StandingsSvc.RecalculateAsync(_season.Id);
+            Snackbar.Add($"Updated points on {n} result(s).", Severity.Success);
+            await LoadAsync();
+        }
+    }
+}

@@ -1,2 +1,96 @@
 @page "/schedules"
-<PlaceholderPage Title="Point schedules" Phase="2" Description="Edit point schedules and clone the built-in ones." />
+@implements IDisposable
+@inject SchedulesViewService SchedulesSvc
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Point schedules</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="Create" data-testid="new-schedule">New schedule</MudButton>
+</div>
+
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+    A schedule maps a placing to points. Built-in schedules are read-only; clone one to adjust it.
+    Schedules you create belong to the active season@(Active.Current is null ? "" : $" ({Active.Current.Name})").
+</MudText>
+
+<MudTable T="ScheduleRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null" OnRowClick="RowClick" RowClass="cursor-pointer">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Mode</MudTh>
+        <MudTh Style="text-align:right">Rows</MudTh>
+        <MudTh>Used by</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">
+            @context.Schedule.Name
+            @if (context.Schedule.IsBuiltIn) { <MudChip T="string" Size="Size.Small" Class="ml-2">built-in</MudChip> }
+        </MudTd>
+        <MudTd DataLabel="Mode">@(context.Schedule.Mode == PointScheduleMode.Fixed ? "Fixed" : "By entry count")</MudTd>
+        <MudTd DataLabel="Rows" Style="text-align:right">@context.RowCount</MudTd>
+        <MudTd DataLabel="Used by" Class="mud-text-secondary">@UsedBy(context)</MudTd>
+        <MudTd Style="white-space: nowrap; text-align: right">
+            <div @onclick:stopPropagation="true">
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" OnClick="() => Clone(context.Schedule)" title="Clone" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Disabled="context.Schedule.IsBuiltIn" OnClick="() => Delete(context)" title="Delete" />
+            </div>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<ScheduleRow>? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Active.Changed += OnSeasonChanged;
+        await Active.GetAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _rows = await SchedulesSvc.ListAsync(Active.Current?.Id);
+
+    private void OnSeasonChanged() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    public void Dispose() => Active.Changed -= OnSeasonChanged;
+
+    private void RowClick(TableRowClickEventArgs<ScheduleRow> e) => Nav.NavigateTo($"schedules/{e.Item!.Schedule.Id}");
+
+    private static string UsedBy(ScheduleRow r)
+    {
+        var parts = new List<string>();
+        if (r.UsedBySeasons > 0) parts.Add($"{r.UsedBySeasons} season(s)");
+        if (r.UsedByDivisions > 0) parts.Add($"{r.UsedByDivisions} division(s)");
+        return parts.Count == 0 ? "—" : string.Join(", ", parts);
+    }
+
+    private void Create() => Nav.NavigateTo("schedules/new");
+
+    private async Task Clone(PointSchedule p)
+    {
+        var copy = await SchedulesSvc.CloneAsync(p.Id, Active.Current?.Id);
+        Nav.NavigateTo($"schedules/{copy.Id}");
+    }
+
+    private async Task Delete(ScheduleRow row)
+    {
+        var detail = row.UsedBySeasons + row.UsedByDivisions > 0
+            ? "Seasons and divisions using it fall back to no schedule and their points are recalculated."
+            : "This cannot be undone.";
+        var ok = await DialogService.ShowMessageBoxAsync($"Delete {row.Schedule.Name}?", detail, yesText: "Delete", cancelText: "Keep");
+        if (ok != true) return;
+        try
+        {
+            await SchedulesSvc.DeleteAsync(row.Schedule.Id);
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+}

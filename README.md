@@ -7,9 +7,9 @@ See [docs/PLAN.md](docs/PLAN.md) for the implementation plan and phases.
 
 ## Status
 
-Phase 1 complete: seasons, divisions, shows, classes, riders, horses, and inline result
-entry with create-on-the-fly rider/horse matching through aliases. Next: Phase 2 (scoring
-and standings). Target framework is `net10.0` until the .NET 11 GA toolchain ships;
+Phase 2 complete: points are computed on every save from the season or division schedule,
+standings page with division/basis filters and per-show drill-down, recalculate-with-diff,
+manual point overrides, and a point schedule editor. Next: Phase 3 (paste/CSV import). Target framework is `net10.0` until the .NET 11 GA toolchain ships;
 flip `AppTargetFramework` in `Directory.Build.props` and the two version properties in
 `Directory.Packages.props` to move.
 

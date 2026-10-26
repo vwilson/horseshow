@@ -416,9 +416,15 @@ As built: a quick-add row per class (Tab across, Enter adds, placing auto-increm
 MudTable row editing for corrections, rider/horse autocompletes that offer "Create" when
 the typed name is unknown and resolve through the alias tables otherwise.
 
-**Phase 2: Scoring and standings**
+**Phase 2: Scoring and standings** (done)
 `PointsCalculator`, `StandingsCalculator`, standings page with filters and drill-down,
 recalculate command with diff. Schedule editor.
+As built: points are recomputed for the whole class on every result or class save (the
+row count stands in for a missing entry count, so one new row can move everyone under an
+entry-scaled schedule); changing a season's or division's schedule, or editing or deleting
+a schedule, recalculates the affected seasons at once; the explicit Recalculate command on
+the standings page shows a diff first. Typing a points value in the results grid marks the
+row Manual and the engine leaves it alone; clearing it hands the row back.
 
 **Phase 3: Import, paste first**
 Tokenizer, structure detection, mapping grid, normalizer, name resolution, preview,

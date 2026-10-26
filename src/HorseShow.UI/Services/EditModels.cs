@@ -214,3 +214,31 @@ public sealed class ResultRow
         PointsSource = other.PointsSource;
     }
 }
+
+public sealed class PointScheduleRowEdit
+{
+    public int Placing { get; set; } = 1;
+    public decimal Points { get; set; }
+    public int MinEntries { get; set; }
+}
+
+public sealed class PointScheduleEdit
+{
+    public int Id { get; set; }
+    public int? SeasonId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public PointScheduleMode Mode { get; set; } = PointScheduleMode.Fixed;
+    public bool IsBuiltIn { get; set; }
+    public List<PointScheduleRowEdit> Rows { get; set; } = [];
+
+    public static PointScheduleEdit From(PointSchedule p) => new()
+    {
+        Id = p.Id,
+        SeasonId = p.SeasonId,
+        Name = p.Name,
+        Mode = p.Mode,
+        IsBuiltIn = p.IsBuiltIn,
+        Rows = p.Rows.OrderBy(r => r.MinEntries).ThenBy(r => r.Placing)
+            .Select(r => new PointScheduleRowEdit { Placing = r.Placing, Points = r.Points, MinEntries = r.MinEntries }).ToList(),
+    };
+}

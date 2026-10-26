@@ -25,6 +25,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<SeasonsViewService>();
         services.AddScoped<ShowsViewService>();
         services.AddScoped<ParticipantsViewService>();
+        services.AddScoped<StandingsViewService>();
+        services.AddScoped<SchedulesViewService>();
         return services;
     }
 }

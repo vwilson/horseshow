@@ -106,6 +106,7 @@ else
         if (result is { Canceled: false, Data: SeasonEdit edit })
         {
             await Seasons.SaveAsync(edit);
+            ReportRecalc();
             await LoadAsync();
         }
     }
@@ -130,6 +131,7 @@ else
             try
             {
                 await Seasons.SaveDivisionAsync(edit);
+                ReportRecalc();
                 await LoadAsync();
             }
             catch (InvalidOperationException ex)
@@ -145,7 +147,16 @@ else
         if (ok == true)
         {
             await Seasons.DeleteDivisionAsync(d.Id);
+            ReportRecalc();
             await LoadAsync();
+        }
+    }
+
+    private void ReportRecalc()
+    {
+        if (Seasons.LastRecalculatedCount > 0)
+        {
+            Snackbar.Add($"Points recalculated on {Seasons.LastRecalculatedCount} result(s).", Severity.Info);
         }
     }
 }

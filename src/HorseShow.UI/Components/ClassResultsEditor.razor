@@ -28,7 +28,17 @@
         {
             <MudTd DataLabel="Score">@context.Score?.ToString("0.###")</MudTd>
         }
-        <MudTd DataLabel="Points">@context.Points?.ToString("0.###")</MudTd>
+        <MudTd DataLabel="Points">
+            @context.Points?.ToString("0.###")
+            @if (context.PointsSource == PointsSource.Manual)
+            {
+                <MudTooltip Text="Set by hand; the engine will not change it"><MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Class="ml-1 mud-text-secondary" /></MudTooltip>
+            }
+            else if (context.PointsSource == PointsSource.Imported)
+            {
+                <MudTooltip Text="Imported as-is"><MudIcon Icon="@Icons.Material.Filled.UploadFile" Size="Size.Small" Class="ml-1 mud-text-secondary" /></MudTooltip>
+            }
+        </MudTd>
         <MudTd>
             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)" title="Delete result" />
         </MudTd>
@@ -56,7 +66,7 @@
         {
             <MudTd DataLabel="Score"><MudNumericField T="decimal?" @bind-Value="context.Score" Margin="Margin.Dense" Variant="Variant.Outlined" HideSpinButtons="true" /></MudTd>
         }
-        <MudTd DataLabel="Points">@context.Points?.ToString("0.###")</MudTd>
+        <MudTd DataLabel="Points"><MudNumericField T="decimal?" @bind-Value="context.Points" Margin="Margin.Dense" Variant="Variant.Outlined" HideSpinButtons="true" Placeholder="auto" /></MudTd>
     </RowEditingTemplate>
     <NoRecordsContent>
         <MudText Typo="Typo.body2" Class="mud-text-secondary">No results yet. Add the first one below.</MudText>
@@ -133,12 +143,16 @@
     private async void CommitRow(object item)
     {
         var row = (ResultRow)item;
+        // Typing a points value overrides the engine; clearing it hands the row back.
+        if (row.Points != _backup?.Points)
+        {
+            row.PointsSource = row.Points is null ? PointsSource.Computed : PointsSource.Manual;
+        }
+
         try
         {
-            var saved = await Shows.SaveResultAsync(row);
-            row.CopyFrom(saved);
-            row.Rider = saved.Rider;
-            row.Horse = saved.Horse;
+            await Shows.SaveResultAsync(row);
+            await LoadAsync(); // other rows may have moved under an entry-scaled schedule
             await OnChanged.InvokeAsync();
         }
         catch (InvalidOperationException ex)
@@ -161,13 +175,8 @@
         try
         {
             _new.ShowClassId = ClassId;
-            var saved = await Shows.SaveResultAsync(_new);
-            _rows.Add(saved);
-            _rows = _rows
-                .OrderBy(r => r.Status == PlacingStatus.Placed ? 0 : 1)
-                .ThenBy(r => r.Placing ?? int.MaxValue)
-                .ThenBy(r => r.Id)
-                .ToList();
+            await Shows.SaveResultAsync(_new);
+            await LoadAsync();
 
             var next = _new.Status == PlacingStatus.Placed ? _new.Placing + 1 : null;
             _new = new ResultRow { ShowClassId = ClassId, Placing = next, Status = _new.Status };
