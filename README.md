@@ -7,8 +7,9 @@ See [docs/PLAN.md](docs/PLAN.md) for the implementation plan and phases.
 
 ## Status
 
-Phase 0 complete: solution skeleton, domain model, EF Core migration, MudBlazor shell,
-Web dev host, CI. Target framework is `net10.0` until the .NET 11 GA toolchain ships;
+Phase 1 complete: seasons, divisions, shows, classes, riders, horses, and inline result
+entry with create-on-the-fly rider/horse matching through aliases. Next: Phase 2 (scoring
+and standings). Target framework is `net10.0` until the .NET 11 GA toolchain ships;
 flip `AppTargetFramework` in `Directory.Build.props` and the two version properties in
 `Directory.Packages.props` to move.
 
@@ -21,6 +22,7 @@ dotnet watch --project src/HorseShow.Web
 # Tests
 dotnet test tests/HorseShow.Core.Tests
 dotnet test tests/HorseShow.Data.Tests
+dotnet test tests/HorseShow.UI.Tests
 
 # Windows desktop app (Windows only; needs the MAUI workload once)
 dotnet workload install maui-windows
@@ -45,4 +47,4 @@ which is `%LOCALAPPDATA%\HorseShow\` when run unpackaged.
 | `src/HorseShow.UI` | MudBlazor pages and components shared by both hosts. |
 | `src/HorseShow.App` | MAUI Blazor Hybrid host, Windows only. |
 | `src/HorseShow.Web` | Dev-only Blazor Server host for the shared UI. |
-| `tests/*` | xUnit. Data tests run against a real SQLite file. |
+| `tests/*` | xUnit. Data and UI service tests run against a real SQLite file via `HorseShow.TestSupport`. |

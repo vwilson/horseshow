@@ -404,14 +404,17 @@ central package management from day one.
 
 Each phase ends in a working, committed app.
 
-**Phase 0: Skeleton (1 session)**
+**Phase 0: Skeleton** (done)
 Solution, projects, CPM, CI workflow, MudBlazor shell with nav, SQLite + EF with an
 initial migration, Web dev host wired to the same RCL. App launches on Windows and
 shows an empty dashboard.
 
-**Phase 1: Core data and manual entry**
+**Phase 1: Core data and manual entry** (done)
 Seasons, shows, classes, riders, horses, results with inline editing. Built-in point
 schedules seeded. No standings yet. This is already usable for someone willing to type.
+As built: a quick-add row per class (Tab across, Enter adds, placing auto-increments),
+MudTable row editing for corrections, rider/horse autocompletes that offer "Create" when
+the typed name is unknown and resolve through the alias tables otherwise.
 
 **Phase 2: Scoring and standings**
 `PointsCalculator`, `StandingsCalculator`, standings page with filters and drill-down,

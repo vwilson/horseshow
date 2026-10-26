@@ -1,2 +1,6 @@
 /* Shared styles for both hosts. Referenced as _content/HorseShow.UI/horseshow.css */
 html, body { height: 100%; }
+
+/* Results editor: keep edit-row inputs compact */
+.results-table .mud-table-cell { vertical-align: middle; }
+.results-table .mud-input-control { margin-top: 0; }

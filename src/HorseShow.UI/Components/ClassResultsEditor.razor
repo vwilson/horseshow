@@ -1,0 +1,208 @@
+@inject ShowsViewService Shows
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudTable T="ResultRow" Items="_rows" Dense="true" Hover="true" Elevation="0" Class="results-table"
+          CanCancelEdit="true" EditTrigger="TableEditTrigger.RowClick" IsEditRowSwitchingBlocked="true"
+          RowEditPreview="BackupRow" RowEditCommit="CommitRow" RowEditCancel="RestoreRow"
+          ApplyButtonPosition="TableApplyButtonPosition.End" EditButtonPosition="TableEditButtonPosition.End"
+          Loading="_loading" LoadingProgressColor="Color.Primary">
+    <HeaderContent>
+        <MudTh Style="width: 90px">Place</MudTh>
+        <MudTh Style="width: 90px">Back #</MudTh>
+        <MudTh>Rider</MudTh>
+        <MudTh>Horse</MudTh>
+        @if (ShowScore)
+        {
+            <MudTh Style="width: 110px">Score</MudTh>
+        }
+        <MudTh Style="width: 90px">Points</MudTh>
+        <MudTh Style="width: 60px"></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Place">@PlacingText(context)</MudTd>
+        <MudTd DataLabel="Back #">@context.BackNumber</MudTd>
+        <MudTd DataLabel="Rider">@context.Rider?.Name</MudTd>
+        <MudTd DataLabel="Horse">@context.Horse?.Name</MudTd>
+        @if (ShowScore)
+        {
+            <MudTd DataLabel="Score">@context.Score?.ToString("0.###")</MudTd>
+        }
+        <MudTd DataLabel="Points">@context.Points?.ToString("0.###")</MudTd>
+        <MudTd>
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => Delete(context)" title="Delete result" />
+        </MudTd>
+    </RowTemplate>
+    <RowEditingTemplate>
+        <MudTd DataLabel="Place">
+            @if (context.Status == PlacingStatus.Placed)
+            {
+                <MudNumericField T="int?" @bind-Value="context.Placing" Min="1" Margin="Margin.Dense" Variant="Variant.Outlined" HideSpinButtons="true" />
+            }
+            else
+            {
+                <MudSelect T="PlacingStatus" @bind-Value="context.Status" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true">
+                    @foreach (var s in Enum.GetValues<PlacingStatus>())
+                    {
+                        <MudSelectItem Value="s">@StatusText(s)</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </MudTd>
+        <MudTd DataLabel="Back #"><MudTextField @bind-Value="context.BackNumber" Margin="Margin.Dense" Variant="Variant.Outlined" /></MudTd>
+        <MudTd DataLabel="Rider"><ParticipantPicker For="ParticipantPicker.Kind.Rider" @bind-Value="context.Rider" /></MudTd>
+        <MudTd DataLabel="Horse"><ParticipantPicker For="ParticipantPicker.Kind.Horse" @bind-Value="context.Horse" /></MudTd>
+        @if (ShowScore)
+        {
+            <MudTd DataLabel="Score"><MudNumericField T="decimal?" @bind-Value="context.Score" Margin="Margin.Dense" Variant="Variant.Outlined" HideSpinButtons="true" /></MudTd>
+        }
+        <MudTd DataLabel="Points">@context.Points?.ToString("0.###")</MudTd>
+    </RowEditingTemplate>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">No results yet. Add the first one below.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@* Quick-add row: Tab across the fields, Enter adds and returns focus to Place. *@
+<MudPaper Class="pa-2 mt-2 d-flex flex-wrap align-center gap-2" Outlined="true" Elevation="0" @onkeydown="OnKeyDown" data-testid="quick-add">
+    <MudNumericField T="int?" @bind-Value="_new.Placing" Label="Place" Min="1" Margin="Margin.Dense" Variant="Variant.Outlined"
+                     HideSpinButtons="true" Style="width: 90px" @ref="_placeField" Immediate="true" Disabled="_new.Status != PlacingStatus.Placed" />
+    <MudSelect T="PlacingStatus" @bind-Value="_new.Status" Margin="Margin.Dense" Variant="Variant.Outlined" Dense="true" Style="width: 130px" Label="Status">
+        @foreach (var s in Enum.GetValues<PlacingStatus>())
+        {
+            <MudSelectItem Value="s">@StatusText(s)</MudSelectItem>
+        }
+    </MudSelect>
+    <MudTextField @bind-Value="_new.BackNumber" Label="Back #" Margin="Margin.Dense" Variant="Variant.Outlined" Style="width: 90px" Immediate="true" />
+    <div style="flex: 1 1 200px"><ParticipantPicker For="ParticipantPicker.Kind.Rider" @bind-Value="_new.Rider" Label="Rider" /></div>
+    <div style="flex: 1 1 200px"><ParticipantPicker For="ParticipantPicker.Kind.Horse" @bind-Value="_new.Horse" Label="Horse" /></div>
+    @if (ShowScore)
+    {
+        <MudNumericField T="decimal?" @bind-Value="_new.Score" Label="Score" Margin="Margin.Dense" Variant="Variant.Outlined" HideSpinButtons="true" Style="width: 110px" Immediate="true" />
+    }
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddNew" StartIcon="@Icons.Material.Filled.Add" Disabled="_saving">Add</MudButton>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public int ClassId { get; set; }
+    [Parameter] public bool ShowScore { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<ResultRow> _rows = [];
+    private ResultRow _new = new();
+    private ResultRow? _backup;
+    private bool _loading = true;
+    private bool _saving;
+    private MudNumericField<int?> _placeField = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _new = new ResultRow { ShowClassId = ClassId };
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _rows = await Shows.GetClassResultsAsync(ClassId);
+        _loading = false;
+    }
+
+    private static string PlacingText(ResultRow r) => r.Status == PlacingStatus.Placed ? r.Placing?.ToString() ?? "" : StatusText(r.Status);
+
+    private static string StatusText(PlacingStatus s) => s switch
+    {
+        PlacingStatus.Placed => "Placed",
+        PlacingStatus.NoPlace => "No place",
+        PlacingStatus.Scratched => "Scratched",
+        PlacingStatus.Disqualified => "DQ",
+        PlacingStatus.Eliminated => "Eliminated",
+        _ => s.ToString(),
+    };
+
+    private void BackupRow(object item) => _backup = ((ResultRow)item).Clone();
+
+    private void RestoreRow(object item)
+    {
+        if (_backup is not null)
+        {
+            ((ResultRow)item).CopyFrom(_backup);
+        }
+    }
+
+    private async void CommitRow(object item)
+    {
+        var row = (ResultRow)item;
+        try
+        {
+            var saved = await Shows.SaveResultAsync(row);
+            row.CopyFrom(saved);
+            row.Rider = saved.Rider;
+            row.Horse = saved.Horse;
+            await OnChanged.InvokeAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+            RestoreRow(row);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task AddNew()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            _new.ShowClassId = ClassId;
+            var saved = await Shows.SaveResultAsync(_new);
+            _rows.Add(saved);
+            _rows = _rows
+                .OrderBy(r => r.Status == PlacingStatus.Placed ? 0 : 1)
+                .ThenBy(r => r.Placing ?? int.MaxValue)
+                .ThenBy(r => r.Id)
+                .ToList();
+
+            var next = _new.Status == PlacingStatus.Placed ? _new.Placing + 1 : null;
+            _new = new ResultRow { ShowClassId = ClassId, Placing = next, Status = _new.Status };
+            await OnChanged.InvokeAsync();
+            await _placeField.FocusAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await AddNew();
+        }
+    }
+
+    private async Task Delete(ResultRow row)
+    {
+        var who = row.Rider?.Name ?? row.Horse?.Name ?? "this result";
+        var ok = await DialogService.ShowMessageBoxAsync("Delete result", $"Delete {who} from this class?", yesText: "Delete", cancelText: "Keep");
+        if (ok != true)
+        {
+            return;
+        }
+
+        await Shows.DeleteResultAsync(row.Id);
+        _rows.Remove(row);
+        await OnChanged.InvokeAsync();
+    }
+}

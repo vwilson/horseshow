@@ -1,2 +1,109 @@
 @page "/shows"
-<PlaceholderPage Title="Shows" Phase="1" Description="Shows in the active season, with classes and inline result entry." />
+@implements IDisposable
+@inject ShowsViewService ShowsSvc
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Shows</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="Create" Disabled="_season is null" data-testid="new-show">New show</MudButton>
+</div>
+
+@if (_season is null)
+{
+    <MudAlert Severity="Severity.Info">Create or activate a season first. <MudLink Href="seasons">Go to seasons</MudLink></MudAlert>
+}
+else
+{
+    <MudTable T="ShowRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null" OnRowClick="RowClick" Style="cursor: pointer">
+        <HeaderContent>
+            <MudTh>Date</MudTh>
+            <MudTh>Show</MudTh>
+            <MudTh>Venue</MudTh>
+            <MudTh Style="text-align:right">Classes</MudTh>
+            <MudTh Style="text-align:right">Results</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Date">@DateText(context.Show)</MudTd>
+            <MudTd DataLabel="Show">@context.Show.Name</MudTd>
+            <MudTd DataLabel="Venue">@context.Show.Venue</MudTd>
+            <MudTd DataLabel="Classes" Style="text-align:right">@context.ClassCount</MudTd>
+            <MudTd DataLabel="Results" Style="text-align:right">@context.ResultCount</MudTd>
+            <MudTd Style="white-space: nowrap; text-align: right">
+            <div @onclick:stopPropagation="true">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => Edit(context.Show))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="@(() => Delete(context))" />
+            </div>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary">No shows in @_season.Name yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    private Season? _season;
+    private List<ShowRow>? _rows;
+    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        Active.Changed += OnSeasonChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _season = await Active.GetAsync();
+        _rows = _season is null ? [] : await ShowsSvc.ListAsync(_season.Id);
+    }
+
+    private void OnSeasonChanged() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    public void Dispose() => Active.Changed -= OnSeasonChanged;
+
+    private void RowClick(TableRowClickEventArgs<ShowRow> e) => Nav.NavigateTo($"shows/{e.Item!.Show.Id}");
+
+    private static string DateText(Show s)
+        => s.EndDate is { } end && end != s.StartDate ? $"{s.StartDate:MMM d} – {end:MMM d, yyyy}" : s.StartDate.ToString("MMM d, yyyy");
+
+    private async Task Create()
+    {
+        var model = new ShowEdit { SeasonId = _season!.Id };
+        var dialog = await DialogService.ShowAsync<ShowDialog>("New show", new DialogParameters<ShowDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ShowEdit edit })
+        {
+            var show = await ShowsSvc.SaveShowAsync(edit);
+            Nav.NavigateTo($"shows/{show.Id}");
+        }
+    }
+
+    private async Task Edit(Show show)
+    {
+        var model = ShowEdit.From(show);
+        var dialog = await DialogService.ShowAsync<ShowDialog>("Edit show", new DialogParameters<ShowDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ShowEdit edit })
+        {
+            await ShowsSvc.SaveShowAsync(edit);
+            await LoadAsync();
+        }
+    }
+
+    private async Task Delete(ShowRow row)
+    {
+        var detail = row.ResultCount > 0 ? $"This deletes {row.ClassCount} class(es) and {row.ResultCount} result(s)." : "This cannot be undone.";
+        var ok = await DialogService.ShowMessageBoxAsync($"Delete {row.Show.Name}?", detail, yesText: "Delete", cancelText: "Keep");
+        if (ok == true)
+        {
+            await ShowsSvc.DeleteShowAsync(row.Show.Id);
+            await LoadAsync();
+        }
+    }
+}

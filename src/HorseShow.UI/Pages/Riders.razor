@@ -1,2 +1,97 @@
 @page "/riders"
-<PlaceholderPage Title="Riders" Phase="1" Description="Rider list with aliases, archive, and merge." />
+@inject ParticipantsViewService Participants
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<div class="d-flex align-center mb-4 gap-3 flex-wrap">
+    <MudText Typo="Typo.h4">Riders</MudText>
+    <MudSpacer />
+    <MudTextField @bind-Value="_search" Placeholder="Search" Immediate="true" DebounceInterval="200" OnDebounceIntervalElapsed="LoadAsync"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width: 280px" />
+    <MudSwitch T="bool" @bind-Value="_includeArchived" @bind-Value:after="LoadAsync" Label="Show archived" Color="Color.Primary" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="Create" data-testid="new-rider">New rider</MudButton>
+</div>
+
+<MudTable T="RiderRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Barn</MudTh>
+        <MudTh>Also known as</MudTh>
+        <MudTh Style="text-align:right">Results</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">
+            @context.Rider.Name
+            @if (!string.IsNullOrEmpty(context.Rider.DisplayName)) { <span class="mud-text-secondary"> (@context.Rider.DisplayName)</span> }
+            @if (context.Rider.IsArchived) { <MudChip T="string" Size="Size.Small" Class="ml-2">archived</MudChip> }
+        </MudTd>
+        <MudTd DataLabel="Barn">@context.Rider.Barn</MudTd>
+        <MudTd DataLabel="Also known as" Class="mud-text-secondary">@string.Join(", ", context.Rider.Aliases.Select(a => a.Alias).Where(a => a != HorseShow.Core.Text.NameNormalizer.Normalize(context.Rider.Name)))</MudTd>
+        <MudTd DataLabel="Results" Style="text-align:right">@context.ResultCount</MudTd>
+        <MudTd Style="white-space: nowrap; text-align: right">
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => Edit(context.Rider)" />
+            <MudIconButton Icon="@(context.Rider.IsArchived ? Icons.Material.Filled.Unarchive : Icons.Material.Filled.Archive)" Size="Size.Small"
+                           OnClick="() => ToggleArchived(context.Rider)" title="@(context.Rider.IsArchived ? "Unarchive" : "Archive")" />
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Disabled="context.ResultCount > 0" OnClick="() => Delete(context.Rider)"
+                           title="@(context.ResultCount > 0 ? "Has results; archive instead" : "Delete")" />
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="mud-text-secondary">No riders yet. They are created automatically when you enter results, or add one here.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<RiderRow>? _rows;
+    private string? _search;
+    private bool _includeArchived;
+    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _rows = await Participants.ListRidersAsync(_includeArchived, _search);
+
+    private async Task Create() => await EditAsync(new RiderEdit(), "New rider");
+
+    private async Task Edit(Rider rider) => await EditAsync(RiderEdit.From(rider), "Edit rider");
+
+    private async Task EditAsync(RiderEdit model, string title)
+    {
+        var dialog = await DialogService.ShowAsync<RiderDialog>(title, new DialogParameters<RiderDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: RiderEdit edit })
+        {
+            try
+            {
+                await Participants.SaveRiderAsync(edit);
+                await LoadAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
+        }
+    }
+
+    private async Task ToggleArchived(Rider rider)
+    {
+        await Participants.SetRiderArchivedAsync(rider.Id, !rider.IsArchived);
+        await LoadAsync();
+    }
+
+    private async Task Delete(Rider rider)
+    {
+        var ok = await DialogService.ShowMessageBoxAsync($"Delete {rider.Name}?", "This cannot be undone.", yesText: "Delete", cancelText: "Keep");
+        if (ok != true) return;
+        try
+        {
+            await Participants.DeleteRiderAsync(rider.Id);
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+}

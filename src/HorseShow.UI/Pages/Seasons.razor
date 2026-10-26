@@ -1,2 +1,112 @@
 @page "/seasons"
-<PlaceholderPage Title="Seasons" Phase="1" Description="Create seasons, set the active one, configure standings basis and point schedule." />
+@inject SeasonsViewService SeasonsSvc
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Seasons</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="Create" data-testid="new-season">New season</MudButton>
+</div>
+
+<MudTable T="SeasonRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null" OnRowClick="RowClick" Style="cursor: pointer">
+    <HeaderContent>
+        <MudTh>Season</MudTh>
+        <MudTh>Year</MudTh>
+        <MudTh>Organization</MudTh>
+        <MudTh>Standings by</MudTh>
+        <MudTh Style="text-align:right">Shows</MudTh>
+        <MudTh Style="text-align:right">Results</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Season">
+            @context.Season.Name
+            @if (context.Season.IsActive)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Class="ml-2">active</MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="Year">@context.Season.Year</MudTd>
+        <MudTd DataLabel="Organization">@context.Season.Organization</MudTd>
+        <MudTd DataLabel="Standings by">@context.Season.StandingsBasis</MudTd>
+        <MudTd DataLabel="Shows" Style="text-align:right">@context.ShowCount</MudTd>
+        <MudTd DataLabel="Results" Style="text-align:right">@context.ResultCount</MudTd>
+        <MudTd Style="white-space: nowrap">
+            <div @onclick:stopPropagation="true">
+            @if (!context.Season.IsActive)
+            {
+                <MudTooltip Text="Make active">
+                    <MudIconButton Icon="@Icons.Material.Filled.PlayCircleOutline" Size="Size.Small" OnClick="@(() => MakeActive(context.Season.Id))" />
+                </MudTooltip>
+            }
+            <MudTooltip Text="Edit">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => Edit(context.Season))" />
+            </MudTooltip>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="@(() => Delete(context))" />
+            </MudTooltip>
+            </div>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="mud-text-secondary">No seasons yet. Create one to get started.</MudText>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    private List<SeasonRow>? _rows;
+    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _rows = await SeasonsSvc.ListAsync();
+
+    private void RowClick(TableRowClickEventArgs<SeasonRow> e) => Nav.NavigateTo($"seasons/{e.Item!.Season.Id}");
+
+    private async Task Create()
+    {
+        var model = new SeasonEdit();
+        var dialog = await DialogService.ShowAsync<SeasonDialog>("New season", new DialogParameters<SeasonDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: SeasonEdit edit })
+        {
+            var season = await SeasonsSvc.SaveAsync(edit);
+            Snackbar.Add($"Season \"{season.Name}\" created.", Severity.Success);
+            Nav.NavigateTo($"seasons/{season.Id}");
+        }
+    }
+
+    private async Task Edit(Season season)
+    {
+        var model = SeasonEdit.From(season);
+        var dialog = await DialogService.ShowAsync<SeasonDialog>("Edit season", new DialogParameters<SeasonDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: SeasonEdit edit })
+        {
+            await SeasonsSvc.SaveAsync(edit);
+            await LoadAsync();
+        }
+    }
+
+    private async Task MakeActive(int id)
+    {
+        await Active.SetActiveAsync(id);
+        await LoadAsync();
+    }
+
+    private async Task Delete(SeasonRow row)
+    {
+        var detail = row.ResultCount > 0
+            ? $"This deletes {row.ShowCount} show(s) and {row.ResultCount} result(s). Riders and horses are kept."
+            : "This cannot be undone.";
+        var ok = await DialogService.ShowMessageBoxAsync($"Delete {row.Season.Name}?", detail, yesText: "Delete", cancelText: "Keep");
+        if (ok == true)
+        {
+            await SeasonsSvc.DeleteAsync(row.Season.Id);
+            await LoadAsync();
+        }
+    }
+}

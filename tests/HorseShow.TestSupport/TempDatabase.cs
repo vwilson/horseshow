@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace HorseShow.Data.Tests;
+namespace HorseShow.TestSupport;
 
 /// <summary>
 /// A real SQLite file in a temp directory, wired exactly as the hosts wire it.

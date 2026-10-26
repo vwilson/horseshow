@@ -1,0 +1,151 @@
+@page "/seasons/{Id:int}"
+@inject SeasonsViewService Seasons
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+@if (_season is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudBreadcrumbs Items="_crumbs" Class="pl-0" />
+    <div class="d-flex align-center mb-4">
+        <MudText Typo="Typo.h4">@_season.Name</MudText>
+        @if (_season.IsActive)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Class="ml-3">active</MudChip>
+        }
+        <MudSpacer />
+        @if (!_season.IsActive)
+        {
+            <MudButton Variant="Variant.Outlined" Class="mr-2" OnClick="MakeActive" StartIcon="@Icons.Material.Filled.PlayCircleOutline">Make active</MudButton>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Edit" StartIcon="@Icons.Material.Filled.Edit">Edit</MudButton>
+    </div>
+
+    <MudGrid>
+        <MudItem xs="12" md="5">
+            <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+                <MudText Typo="Typo.h6" GutterBottom="true">Settings</MudText>
+                <MudSimpleTable Dense="true" Elevation="0">
+                    <tbody>
+                        <tr><td>Year</td><td>@_season.Year</td></tr>
+                        <tr><td>Organization</td><td>@(_season.Organization ?? "—")</td></tr>
+                        <tr><td>Standings by</td><td>@_season.StandingsBasis</td></tr>
+                        <tr><td>Default point schedule</td><td>@(_season.DefaultPointSchedule?.Name ?? "none")</td></tr>
+                        <tr><td>Best N shows counted</td><td>@(_season.TopNShowsCounted?.ToString() ?? "all")</td></tr>
+                        <tr><td>Minimum shows for awards</td><td>@(_season.MinShowsForAward?.ToString() ?? "none")</td></tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="7">
+            <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+                <div class="d-flex align-center mb-2">
+                    <MudText Typo="Typo.h6">Divisions</MudText>
+                    <MudSpacer />
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddDivision" data-testid="new-division">Add division</MudButton>
+                </div>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Standings buckets such as "Walk-Trot 11 &amp; Under". Classes are assigned to a division on the show page.
+                </MudText>
+                <MudTable T="Division" Items="_season.Divisions" Dense="true" Hover="true" Elevation="0" Class="mt-2">
+                    <HeaderContent>
+                        <MudTh>Division</MudTh>
+                        <MudTh>Point schedule</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.Name</MudTd>
+                        <MudTd>@(context.PointSchedule?.Name ?? "season default")</MudTd>
+                        <MudTd Style="white-space: nowrap; text-align: right">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => EditDivision(context)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteDivision(context)" />
+                        </MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">No divisions. Optional, but needed for per-division standings.</MudText>
+                    </NoRecordsContent>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Season? _season;
+    private List<PointSchedule> _schedules = [];
+    private List<BreadcrumbItem> _crumbs = [];
+    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _season = await Seasons.GetAsync(Id);
+        if (_season is null)
+        {
+            Nav.NavigateTo("seasons");
+            return;
+        }
+
+        _schedules = await Seasons.ListPointSchedulesAsync(Id);
+        _crumbs = [new BreadcrumbItem("Seasons", "seasons"), new BreadcrumbItem(_season.Name, null, disabled: true)];
+    }
+
+    private async Task Edit()
+    {
+        var model = SeasonEdit.From(_season!);
+        var dialog = await DialogService.ShowAsync<SeasonDialog>("Edit season", new DialogParameters<SeasonDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: SeasonEdit edit })
+        {
+            await Seasons.SaveAsync(edit);
+            await LoadAsync();
+        }
+    }
+
+    private async Task MakeActive()
+    {
+        await Active.SetActiveAsync(Id);
+        await LoadAsync();
+    }
+
+    private async Task AddDivision() => await EditDivisionAsync(new DivisionEdit { SeasonId = Id }, "Add division");
+
+    private async Task EditDivision(Division d) => await EditDivisionAsync(DivisionEdit.From(d), "Edit division");
+
+    private async Task EditDivisionAsync(DivisionEdit model, string title)
+    {
+        var parameters = new DialogParameters<DivisionDialog> { { x => x.Model, model }, { x => x.Schedules, _schedules } };
+        var dialog = await DialogService.ShowAsync<DivisionDialog>(title, parameters, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: DivisionEdit edit })
+        {
+            try
+            {
+                await Seasons.SaveDivisionAsync(edit);
+                await LoadAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
+        }
+    }
+
+    private async Task DeleteDivision(Division d)
+    {
+        var ok = await DialogService.ShowMessageBoxAsync($"Delete {d.Name}?", "Classes in this division keep their results and become unassigned.", yesText: "Delete", cancelText: "Keep");
+        if (ok == true)
+        {
+            await Seasons.DeleteDivisionAsync(d.Id);
+            await LoadAsync();
+        }
+    }
+}

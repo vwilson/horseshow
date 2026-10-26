@@ -1,0 +1,169 @@
+@page "/shows/{Id:int}"
+@inject ShowsViewService Shows
+@inject SeasonsViewService Seasons
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+
+@if (_show is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudBreadcrumbs Items="_crumbs" Class="pl-0" />
+    <div class="d-flex align-center mb-1">
+        <MudText Typo="Typo.h4">@_show.Name</MudText>
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" Class="mr-2" OnClick="EditShow" StartIcon="@Icons.Material.Filled.Edit">Edit show</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddClass" StartIcon="@Icons.Material.Filled.Add" data-testid="new-class">Add class</MudButton>
+    </div>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+        @_show.StartDate.ToString("MMMM d, yyyy")@(_show.EndDate is { } end && end != _show.StartDate ? $" – {end:MMMM d, yyyy}" : "")
+        @if (!string.IsNullOrEmpty(_show.Venue)) { <text> · @_show.Venue</text> }
+        · @_show.Classes.Count class(es) · @_show.Classes.Sum(c => c.Results.Count) result(s)
+    </MudText>
+
+    @if (_show.Classes.Count == 0)
+    {
+        <MudPaper Class="pa-8 d-flex flex-column align-center" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.h6">No classes yet</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mt-1">Add a class, then enter its placings below it.</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="AddClass" StartIcon="@Icons.Material.Filled.Add">Add class</MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudExpansionPanels MultiExpansion="true">
+            @foreach (var cls in _show.Classes)
+            {
+                <MudExpansionPanel @key="cls.Id" Expanded="_expanded.Contains(cls.Id)" ExpandedChanged="v => SetExpanded(cls.Id, v)">
+                    <TitleContent>
+                        <div class="d-flex align-center" style="width: 100%">
+                            @if (!string.IsNullOrEmpty(cls.ClassNumber))
+                            {
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="mr-2">@cls.ClassNumber</MudChip>
+                            }
+                            <MudText Typo="Typo.subtitle1">@cls.Name</MudText>
+                            @if (cls.Division is not null)
+                            {
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary ml-3">@cls.Division.Name</MudText>
+                            }
+                            <MudSpacer />
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary mr-3">
+                                @cls.Results.Count result(s)@(cls.EntryCount is { } n ? $" of {n} entries" : "")
+                            </MudText>
+                            <div @onclick:stopPropagation="true">
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="@(() => EditClass(cls))" title="Edit class" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="@(() => DeleteClass(cls))" title="Delete class" />
+                            </div>
+                        </div>
+                    </TitleContent>
+                    <ChildContent>
+                        @if (_expanded.Contains(cls.Id))
+                        {
+                            <ClassResultsEditor ClassId="cls.Id" ShowScore="cls.ClassType != ClassType.Placed" OnChanged="RefreshCounts" />
+                        }
+                    </ChildContent>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Show? _show;
+    private List<Division> _divisions = [];
+    private readonly HashSet<int> _expanded = [];
+    private List<BreadcrumbItem> _crumbs = [];
+    private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+        if (_show is not null && _expanded.Count == 0 && _show.Classes.Count > 0)
+        {
+            _expanded.Add(_show.Classes.Last().Id);
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _show = await Shows.GetAsync(Id);
+        if (_show is null)
+        {
+            Nav.NavigateTo("shows");
+            return;
+        }
+
+        var season = await Seasons.GetAsync(_show.SeasonId);
+        _divisions = season?.Divisions.ToList() ?? [];
+        _crumbs = [new BreadcrumbItem("Shows", "shows"), new BreadcrumbItem(_show.Name, null, disabled: true)];
+    }
+
+    private void SetExpanded(int classId, bool expanded)
+    {
+        if (expanded) _expanded.Add(classId); else _expanded.Remove(classId);
+    }
+
+    private async Task RefreshCounts()
+    {
+        var show = await Shows.GetAsync(Id);
+        if (show is not null)
+        {
+            _show = show;
+        }
+    }
+
+    private async Task EditShow()
+    {
+        var model = ShowEdit.From(_show!);
+        var dialog = await DialogService.ShowAsync<ShowDialog>("Edit show", new DialogParameters<ShowDialog> { { x => x.Model, model } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ShowEdit edit })
+        {
+            await Shows.SaveShowAsync(edit);
+            await LoadAsync();
+        }
+    }
+
+    private async Task AddClass()
+    {
+        var model = new ShowClassEdit { ShowId = Id };
+        var saved = await EditClassAsync(model, "Add class");
+        if (saved is not null)
+        {
+            _expanded.Add(saved.Id);
+        }
+    }
+
+    private async Task EditClass(ShowClass cls) => await EditClassAsync(ShowClassEdit.From(cls), "Edit class");
+
+    private async Task<ShowClass?> EditClassAsync(ShowClassEdit model, string title)
+    {
+        var parameters = new DialogParameters<ShowClassDialog> { { x => x.Model, model }, { x => x.Divisions, _divisions } };
+        var dialog = await DialogService.ShowAsync<ShowClassDialog>(title, parameters, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ShowClassEdit edit })
+        {
+            var saved = await Shows.SaveClassAsync(edit);
+            await LoadAsync();
+            return saved;
+        }
+
+        return null;
+    }
+
+    private async Task DeleteClass(ShowClass cls)
+    {
+        var detail = cls.Results.Count > 0 ? $"This deletes {cls.Results.Count} result(s)." : "This cannot be undone.";
+        var ok = await DialogService.ShowMessageBoxAsync($"Delete {cls.Name}?", detail, yesText: "Delete", cancelText: "Keep");
+        if (ok == true)
+        {
+            await Shows.DeleteClassAsync(cls.Id);
+            _expanded.Remove(cls.Id);
+            await LoadAsync();
+        }
+    }
+}

@@ -1,0 +1,44 @@
+@using HorseShow.Core.Text
+
+<div class="@Class">
+    <MudText Typo="Typo.subtitle2">Also known as</MudText>
+    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+        Other spellings seen on result sheets. Names are matched after trimming, case folding, and "Last, First" reordering.
+    </MudText>
+    <div class="d-flex flex-wrap gap-1 mt-2">
+        @foreach (var alias in Aliases)
+        {
+            <MudChip T="string" Size="Size.Small" OnClose="() => Remove(alias)">@alias</MudChip>
+        }
+    </div>
+    <MudTextField @bind-Value="_pending" Label="Add alias" Immediate="true" OnKeyDown="OnKeyDown"
+                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Add" OnAdornmentClick="Add" Class="mt-1" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<string> Aliases { get; set; } = [];
+    [Parameter] public string? Class { get; set; }
+
+    private string? _pending;
+
+    private void Add()
+    {
+        var key = NameNormalizer.Normalize(_pending);
+        if (key.Length > 0 && !Aliases.Contains(key))
+        {
+            Aliases.Add(key);
+        }
+
+        _pending = null;
+    }
+
+    private void Remove(string alias) => Aliases.Remove(alias);
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            Add();
+        }
+    }
+}

@@ -1,17 +1,49 @@
-@inject DashboardViewService Dashboard
+@implements IDisposable
+@inject ActiveSeasonService Active
+@inject SeasonsViewService Seasons
+@inject NavigationManager Nav
 
-@if (_season is not null)
-{
-    <MudChip T="string" Icon="@Icons.Material.Filled.CalendarMonth" Color="Color.Secondary" Variant="Variant.Filled">
-        @_season.Name
-    </MudChip>
-}
+<MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true">
+    <ActivatorContent>
+        <MudChip T="string" Icon="@Icons.Material.Filled.CalendarMonth" Color="Color.Secondary" Variant="Variant.Filled"
+                 Style="cursor: pointer;" data-testid="season-chip">
+            @(Active.Current?.Name ?? "No active season")
+        </MudChip>
+    </ActivatorContent>
+    <ChildContent>
+        @foreach (var s in _seasons)
+        {
+            <MudMenuItem OnClick="() => Switch(s.Id)" Disabled="s.Id == Active.Current?.Id">
+                @s.Name @(s.IsActive ? " (active)" : "")
+            </MudMenuItem>
+        }
+        <MudDivider />
+        <MudMenuItem OnClick="@(() => Nav.NavigateTo("seasons"))" Icon="@Icons.Material.Filled.Settings">Manage seasons</MudMenuItem>
+    </ChildContent>
+</MudMenu>
 
 @code {
-    private Season? _season;
+    private List<Season> _seasons = [];
 
     protected override async Task OnInitializedAsync()
     {
-        _season = await Dashboard.GetActiveSeasonAsync();
+        Active.Changed += OnChanged;
+        await Active.GetAsync();
+        await LoadAsync();
     }
+
+    private async Task LoadAsync()
+    {
+        _seasons = (await Seasons.ListAsync()).Select(r => r.Season).ToList();
+    }
+
+    private async Task Switch(int id)
+    {
+        await Active.SetActiveAsync(id);
+        await LoadAsync();
+    }
+
+    private void OnChanged() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    public void Dispose() => Active.Changed -= OnChanged;
 }

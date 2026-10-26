@@ -10,6 +10,7 @@
     <!-- Microsoft -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(DotNetPackagesVersion)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(DotNetPackagesVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(DotNetPackagesVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="$(DotNetPackagesVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="$(DotNetPackagesVersion)" />
     <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="$(DotNetPackagesVersion)" />
