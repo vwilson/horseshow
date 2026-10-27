@@ -1,11 +1,21 @@
+using HorseShow.UI.Platform;
 using MudBlazor;
 
 namespace HorseShow.UI.Services;
 
-/// <summary>Scoped per circuit/window. Persisting the choice arrives with Settings in Phase 5.</summary>
-public sealed class ThemeService
+/// <summary>Scoped per circuit/window. The dark-mode choice is persisted through <see cref="IUserSettings"/>.</summary>
+public sealed class ThemeService(IUserSettings settings)
 {
     public event Action? Changed;
+
+    public async Task LoadAsync()
+    {
+        var stored = await settings.GetAsync(SettingKeys.DarkMode);
+        if (bool.TryParse(stored, out var dark))
+        {
+            IsDarkMode = dark;
+        }
+    }
 
     public bool IsDarkMode
     {
@@ -37,5 +47,9 @@ public sealed class ThemeService
         },
     };
 
-    public void Toggle() => IsDarkMode = !IsDarkMode;
+    public async Task Toggle()
+    {
+        IsDarkMode = !IsDarkMode;
+        await settings.SetAsync(SettingKeys.DarkMode, IsDarkMode.ToString());
+    }
 }

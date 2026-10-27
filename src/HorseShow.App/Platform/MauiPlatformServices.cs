@@ -3,11 +3,17 @@ using HorseShow.UI.Platform;
 
 namespace HorseShow.App.Platform;
 
-public sealed class MauiAppPaths : IAppPaths
+/// <summary>MAUI Preferences-backed settings. Survives unpackaged and packaged installs alike.</summary>
+public sealed class MauiUserSettings : IUserSettings
 {
-    public string DataDirectory { get; } = Path.Combine(FileSystem.AppDataDirectory, "HorseShow");
-    public string DatabasePath => Path.Combine(DataDirectory, DatabaseOptions.DefaultFileName);
-    public string BackupDirectory => Path.Combine(DataDirectory, "backups");
+    public Task<string?> GetAsync(string key)
+        => Task.FromResult(Preferences.Default.ContainsKey(key) ? Preferences.Default.Get<string?>(key, null) : null);
+
+    public Task SetAsync(string key, string? value)
+    {
+        if (value is null) Preferences.Default.Remove(key); else Preferences.Default.Set(key, value);
+        return Task.CompletedTask;
+    }
 }
 
 public sealed class MauiClipboardService : IClipboardService

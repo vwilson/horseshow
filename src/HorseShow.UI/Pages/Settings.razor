@@ -1,13 +1,184 @@
 @page "/settings"
 @inject HorseShow.UI.Platform.IAppPaths Paths
+@inject MaintenanceViewService Maintenance
+@inject ThemeService Theme
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
 
 <MudText Typo="Typo.h4" GutterBottom="true">Settings</MudText>
 
-<MudPaper Class="pa-4" Outlined="true" Elevation="0">
-    <MudText Typo="Typo.h6" GutterBottom="true">Storage</MudText>
-    <MudField Label="Database file" Variant="Variant.Text">@Paths.DatabasePath</MudField>
-    <MudField Label="Backups" Variant="Variant.Text" Class="mt-2">@Paths.BackupDirectory</MudField>
-    <MudText Typo="Typo.caption" Class="mt-2 mud-text-secondary">
-        Changing the location, backup and restore arrive in Phase 5.
-    </MudText>
-</MudPaper>
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4 mb-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Appearance</MudText>
+            <MudSwitch T="bool" Value="Theme.IsDarkMode" ValueChanged="_ => Theme.Toggle()" Label="Dark mode" Color="Color.Primary" />
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Storage</MudText>
+            <MudField Label="Database file" Variant="Variant.Text">@Paths.DatabasePath</MudField>
+            <MudField Label="Backups" Variant="Variant.Text" Class="mt-2">@Paths.BackupDirectory</MudField>
+            @if (_counts is { } c)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-2">@c.Seasons season(s) · @c.Shows show(s) · @c.Results result(s)</MudText>
+            }
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2">Keep the database somewhere else</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                For example a OneDrive or Dropbox folder. The current data is copied there if the folder has no database yet. Takes effect after a restart.
+            </MudText>
+            <div class="d-flex gap-2 align-center">
+                <MudTextField @bind-Value="_folder" Label="Folder" Variant="Variant.Outlined" Margin="Margin.Dense" Immediate="true" Style="flex: 1" />
+                <MudButton Variant="Variant.Outlined" OnClick="MoveDatabase" Disabled="string.IsNullOrWhiteSpace(_folder)">Use this folder</MudButton>
+                @if (Maintenance.IsDatabaseRelocated)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ResetLocation">Back to default</MudButton>
+                }
+            </div>
+        </MudPaper>
+
+        <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">About</MudText>
+            <MudText Typo="Typo.body2">HorseShow @(typeof(Settings).Assembly.GetName().Version?.ToString(3) ?? "dev")</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">.NET @Environment.Version · MudBlazor · EF Core · SQLite</MudText>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+            <div class="d-flex align-center mb-2">
+                <MudText Typo="Typo.h6">Backups</MudText>
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Backup" OnClick="BackupNow" data-testid="backup-now">Back up now</MudButton>
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" Class="ml-2" StartIcon="@Icons.Material.Filled.Download" OnClick="Download">Save a copy…</MudButton>
+            </div>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mb-2">
+                A backup is also taken automatically before any database upgrade and before every restore.
+            </MudText>
+            <MudTable T="BackupFile" Items="_backups" Dense="true" Hover="true" Elevation="0" Loading="_backups is null">
+                <HeaderContent>
+                    <MudTh>File</MudTh>
+                    <MudTh>When</MudTh>
+                    <MudTh Style="text-align:right">Size</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="File" Style="font-family: ui-monospace, monospace; font-size: 0.8rem">@context.Name</MudTd>
+                    <MudTd DataLabel="When">@context.Modified.ToString("MMM d, yyyy HH:mm")</MudTd>
+                    <MudTd Style="text-align:right">@((context.Bytes / 1024.0).ToString("0") ) KB</MudTd>
+                    <MudTd Style="text-align:right; white-space: nowrap">
+                        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="() => Restore(context)" data-testid="restore-backup">Restore</MudButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" OnClick="() => DeleteBackup(context)" />
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">No backups yet.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.subtitle2" GutterBottom="true">Restore from a file</MudText>
+            <MudFileUpload T="IBrowserFile" FilesChanged="RestoreFromFile" Accept=".db">
+                <CustomContent Context="upload">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Restore" OnClick="upload.OpenFilePickerAsync">Choose a .db file…</MudButton>
+                </CustomContent>
+            </MudFileUpload>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<BackupFile>? _backups;
+    private (int Seasons, int Shows, int Results)? _counts;
+    private string? _folder;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _backups = await Maintenance.ListBackupsAsync();
+        _counts = await Maintenance.CountsAsync();
+        _folder = Maintenance.IsDatabaseRelocated ? Path.GetDirectoryName(Paths.DatabasePath) : null;
+    }
+
+    private async Task BackupNow()
+    {
+        var b = await Maintenance.BackupNowAsync();
+        Snackbar.Add($"Backed up to {b.Name}.", Severity.Success);
+        _backups = await Maintenance.ListBackupsAsync();
+    }
+
+    private async Task Download()
+    {
+        var path = await Maintenance.DownloadBackupAsync();
+        if (path is not null)
+        {
+            Snackbar.Add($"Saved to {path}.", Severity.Success);
+        }
+
+        _backups = await Maintenance.ListBackupsAsync();
+    }
+
+    private async Task Restore(BackupFile file)
+    {
+        var ok = await DialogService.ShowMessageBoxAsync("Restore this backup?",
+            $"Everything entered since {file.Modified:MMM d, yyyy HH:mm} will be replaced. The current database is backed up first.",
+            yesText: "Restore", cancelText: "Keep current");
+        if (ok != true) return;
+        await DoRestore(() => Maintenance.RestoreAsync(file.Path));
+    }
+
+    private async Task RestoreFromFile(IBrowserFile? file)
+    {
+        if (file is null) return;
+        var ok = await DialogService.ShowMessageBoxAsync("Restore from file?",
+            $"Replace the current database with {file.Name}? The current database is backed up first.",
+            yesText: "Restore", cancelText: "Keep current");
+        if (ok != true) return;
+        await DoRestore(async () =>
+        {
+            await using var stream = file.OpenReadStream(200_000_000);
+            await Maintenance.RestoreFromStreamAsync(stream);
+        });
+    }
+
+    private async Task DoRestore(Func<Task> action)
+    {
+        try
+        {
+            await action();
+            await Active.RefreshAsync();
+            Snackbar.Add("Database restored.", Severity.Success);
+            Nav.NavigateTo("/", forceLoad: true);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteBackup(BackupFile file)
+    {
+        await Maintenance.DeleteBackupAsync(file);
+        _backups = await Maintenance.ListBackupsAsync();
+    }
+
+    private async Task MoveDatabase()
+    {
+        try
+        {
+            await Maintenance.SetDatabaseFolderAsync(_folder);
+            Snackbar.Add("Location saved. Restart HorseShow to use it.", Severity.Info);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Snackbar.Add($"Could not use that folder: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ResetLocation()
+    {
+        await Maintenance.SetDatabaseFolderAsync(null);
+        _folder = null;
+        Snackbar.Add("Back to the default location after a restart.", Severity.Info);
+    }
+}

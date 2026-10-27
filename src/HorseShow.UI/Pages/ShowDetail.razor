@@ -3,6 +3,8 @@
 @inject SeasonsViewService Seasons
 @inject IDialogService DialogService
 @inject NavigationManager Nav
+@inject HorseShow.UI.Platform.IFileSaveService FileSave
+@inject ISnackbar Snackbar
 
 @if (_show is null)
 {
@@ -14,6 +16,7 @@ else
     <div class="d-flex align-center mb-1">
         <MudText Typo="Typo.h4">@_show.Name</MudText>
         <MudSpacer />
+        <MudButton Variant="Variant.Text" Class="mr-2" OnClick="ExportCsv" StartIcon="@Icons.Material.Filled.TableView">Export CSV</MudButton>
         <MudButton Variant="Variant.Outlined" Class="mr-2" OnClick="EditShow" StartIcon="@Icons.Material.Filled.Edit">Edit show</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddClass" StartIcon="@Icons.Material.Filled.Add" data-testid="new-class">Add class</MudButton>
     </div>
@@ -114,6 +117,15 @@ else
         {
             _show = show;
         }
+    }
+
+    private async Task ExportCsv()
+    {
+        var full = await Shows.GetAsync(Id, includeParticipants: true);
+        if (full is null) return;
+        using var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(HorseShow.Import.Export.Exporters.ShowResultsCsv(full)));
+        var saved = await FileSave.SaveAsync($"{full.StartDate:yyyy-MM-dd}-{full.Name.Replace(' ', '-')}.csv", ms);
+        if (saved is not null) Snackbar.Add($"Saved {saved}.", Severity.Success);
     }
 
     private async Task EditShow()

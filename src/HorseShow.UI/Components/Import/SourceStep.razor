@@ -37,9 +37,15 @@
                     </div>
                 </MudTabPanel>
                 <MudTabPanel Text="File" Icon="@Icons.Material.Filled.UploadFile">
-                    <MudFileUpload T="IBrowserFile" FilesChanged="OnFile" Accept=".csv,.tsv,.txt,.xlsx,.xlsm" MaxFileSize="20_000_000">
+                    <MudFileUpload T="IBrowserFile" FilesChanged="OnFile" Accept=".csv,.tsv,.txt,.xlsx,.xlsm" MaxFileSize="20_000_000"
+                                   DragAndDrop="true" @bind-Dragging="_dragging" Hidden="false" InputClass="absolute mud-width-full mud-height-full overflow-hidden z-10 file-drop-input">
                         <CustomContent Context="upload">
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FolderOpen" OnClick="upload.OpenFilePickerAsync" data-testid="choose-file">Choose a CSV or XLSX file</MudButton>
+                            <MudPaper Outlined="true" Elevation="0" Class="@($"pa-8 d-flex flex-column align-center justify-center relative {(_dragging ? "mud-border-primary" : "")}")" Style="min-height: 180px; border-style: dashed">
+                                <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Style="font-size: 3rem" Color="@(_dragging ? Color.Primary : Color.Default)" />
+                                <MudText Typo="Typo.body1" Class="mt-2">Drop a CSV or XLSX file here</MudText>
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">or</MudText>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.FolderOpen" OnClick="upload.OpenFilePickerAsync" data-testid="choose-file">Choose a file</MudButton>
+                            </MudPaper>
                         </CustomContent>
                     </MudFileUpload>
                     @if (Session.FileName is not null)
@@ -57,6 +63,7 @@
 
     private List<ShowRow> _shows = [];
     private int _tab;
+    private bool _dragging;
 
     protected override async Task OnInitializedAsync()
     {

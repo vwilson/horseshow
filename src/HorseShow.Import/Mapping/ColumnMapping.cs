@@ -17,6 +17,11 @@ public sealed class ColumnMapping
 
     public bool Has(ImportField field) => Fields.ContainsValue(field);
 
+    /// <summary>One row per competitor, one column per class.</summary>
+    public bool IsWide => Has(ImportField.ClassPlacing);
+
+    public IEnumerable<int> ClassColumns() => Fields.Where(kv => kv.Value == ImportField.ClassPlacing).Select(kv => kv.Key).OrderBy(c => c);
+
     public void Set(int column, ImportField field)
     {
         if (field == ImportField.Ignore)
@@ -26,11 +31,14 @@ public sealed class ColumnMapping
             return;
         }
 
-        // A field can own one column; reassigning moves it.
-        foreach (var other in Fields.Where(kv => kv.Value == field && kv.Key != column).Select(kv => kv.Key).ToList())
+        // A field can own one column; reassigning moves it. ClassPlacing is the exception: one column per class.
+        if (field != ImportField.ClassPlacing)
         {
-            Fields.Remove(other);
-            Confidence.Remove(other);
+            foreach (var other in Fields.Where(kv => kv.Value == field && kv.Key != column).Select(kv => kv.Key).ToList())
+            {
+                Fields.Remove(other);
+                Confidence.Remove(other);
+            }
         }
 
         Fields[column] = field;
@@ -43,6 +51,16 @@ public sealed class ColumnMapping
         if (!Has(ImportField.Rider) && !Has(ImportField.Horse) && !Has(ImportField.RiderAndHorse))
         {
             yield return "Map a Rider, Horse, or combined Rider and horse column.";
+        }
+
+        if (IsWide)
+        {
+            if (Has(ImportField.Placing))
+            {
+                yield return "A sheet is either one row per result (Placing column) or one row per competitor (class columns), not both.";
+            }
+
+            yield break;
         }
 
         if (!Has(ImportField.Placing) && !Has(ImportField.Score) && !Has(ImportField.Points))

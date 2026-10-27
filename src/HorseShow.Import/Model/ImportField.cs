@@ -16,6 +16,8 @@ public enum ImportField
     Score,
     Points,
     EntryCount,
+    /// <summary>Wide layout: the column is one class and each cell is that row's placing in it.</summary>
+    ClassPlacing,
 }
 
 public static class ImportFieldInfo
@@ -34,6 +36,7 @@ public static class ImportFieldInfo
         ImportField.Score => "Score",
         ImportField.Points => "Points (as published)",
         ImportField.EntryCount => "Entries in class",
+        ImportField.ClassPlacing => "A class (cells are placings)",
         _ => f.ToString(),
     };
 }

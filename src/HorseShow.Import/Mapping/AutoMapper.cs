@@ -26,6 +26,35 @@ public static class AutoMapper
             }
         }
 
+        // Wide layout: a header row, two or more unmapped columns whose values all read as placings
+        // (or blanks), and no Placing column. Each such column is a class.
+        if (doc.HeaderRow is not null && !mapping.Has(ImportField.Placing))
+        {
+            var candidates = new List<int>();
+            for (var c = 0; c < doc.ColumnCount; c++)
+            {
+                if (mapping.Fields.ContainsKey(c) || string.IsNullOrWhiteSpace(doc.HeaderText(c)))
+                {
+                    continue;
+                }
+
+                var values = ColumnValues(doc, c);
+                if (values.Count > 0 && values.All(PlacingParser.LooksLikePlacing))
+                {
+                    candidates.Add(c);
+                }
+            }
+
+            if (candidates.Count >= 2)
+            {
+                foreach (var c in candidates)
+                {
+                    mapping.Set(c, ImportField.ClassPlacing);
+                    mapping.Confidence[c] = 0.8;
+                }
+            }
+        }
+
         // Fill gaps from values, never overriding a header match.
         var textColumns = new List<int>();
         for (var c = 0; c < doc.ColumnCount; c++)

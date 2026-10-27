@@ -18,14 +18,21 @@ public sealed class ShowsViewService(IDbContextFactory<HorseShowDbContext> facto
             .ToListAsync(ct);
     }
 
-    public async Task<Show?> GetAsync(int id, CancellationToken ct = default)
+    public async Task<Show?> GetAsync(int id, bool includeParticipants = false, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        return await db.Shows.AsNoTracking()
+        IQueryable<Show> query = db.Shows.AsNoTracking()
             .Include(s => s.Season)
             .Include(s => s.Classes.OrderBy(c => c.SortOrder).ThenBy(c => c.Id)).ThenInclude(c => c.Division)
-            .Include(s => s.Classes).ThenInclude(c => c.Results)
-            .FirstOrDefaultAsync(s => s.Id == id, ct);
+            .Include(s => s.Classes).ThenInclude(c => c.Results);
+        if (includeParticipants)
+        {
+            query = query
+                .Include(s => s.Classes).ThenInclude(c => c.Results).ThenInclude(r => r.Rider)
+                .Include(s => s.Classes).ThenInclude(c => c.Results).ThenInclude(r => r.Horse);
+        }
+
+        return await query.FirstOrDefaultAsync(s => s.Id == id, ct);
     }
 
     public async Task<Show> SaveShowAsync(ShowEdit edit, CancellationToken ct = default)

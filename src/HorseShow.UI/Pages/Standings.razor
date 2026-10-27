@@ -5,6 +5,8 @@
 @inject ActiveSeasonService Active
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject HorseShow.UI.Platform.IFileSaveService FileSave
+@inject IJSRuntime JS
 
 <div class="d-flex align-center mb-4 gap-3 flex-wrap">
     <MudText Typo="Typo.h4">Standings</MudText>
@@ -24,6 +26,11 @@
             <MudSelectItem Value="StandingsBasis.Combination">Rider + horse</MudSelectItem>
         </MudSelect>
         <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Calculate" OnClick="Recalculate" data-testid="recalc">Recalculate points</MudButton>
+        <MudMenu Icon="@Icons.Material.Filled.MoreVert" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true" Class="no-print">
+            <MudMenuItem Icon="@Icons.Material.Filled.TableView" OnClick="() => Export(false)">Export CSV</MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Filled.GridOn" OnClick="() => Export(true)">Export Excel</MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Filled.Print" OnClick="Print">Print</MudMenuItem>
+        </MudMenu>
     }
 </div>
 
@@ -189,6 +196,33 @@ else
     }
 
     private static string Pts(decimal v) => v.ToString("0.###");
+
+    private HorseShow.Import.Export.Exporters.StandingsExport ExportModel()
+        => new(_season!.Name, _basis.ToString(), _page!.Divisions.FirstOrDefault(d => d.Id == _divisionId)?.Name, _season.TopNShowsCounted is not null, _page.Lines);
+
+    private async Task Export(bool excel)
+    {
+        var model = ExportModel();
+        var stem = $"{_season!.Name}-standings{(model.DivisionName is null ? "" : "-" + model.DivisionName)}".Replace(' ', '-');
+        string? saved;
+        if (excel)
+        {
+            using var ms = new MemoryStream(HorseShow.Import.Export.Exporters.StandingsXlsx(model));
+            saved = await FileSave.SaveAsync($"{stem}.xlsx", ms);
+        }
+        else
+        {
+            using var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(HorseShow.Import.Export.Exporters.StandingsCsv(model)));
+            saved = await FileSave.SaveAsync($"{stem}.csv", ms);
+        }
+
+        if (saved is not null)
+        {
+            Snackbar.Add($"Saved {saved}.", Severity.Success);
+        }
+    }
+
+    private async Task Print() => await JS.InvokeVoidAsync("print");
 
     private string RulesText()
     {

@@ -20,8 +20,9 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        var paths = new MauiAppPaths();
+        var paths = new DefaultAppPaths(Path.Combine(FileSystem.AppDataDirectory, "HorseShow"));
         builder.Services.AddSingleton<IAppPaths>(paths);
+        builder.Services.AddSingleton<IUserSettings, MauiUserSettings>();
         builder.Services.AddSingleton<IClipboardService, MauiClipboardService>();
         builder.Services.AddSingleton<IFilePickerService, MauiFilePickerService>();
         builder.Services.AddSingleton<IFileSaveService, MauiFileSaveService>();

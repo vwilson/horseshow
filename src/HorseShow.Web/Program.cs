@@ -9,8 +9,9 @@ using HorseShow.Web.Platform;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var paths = new WebAppPaths(Path.Combine(builder.Environment.ContentRootPath, "data"));
+var paths = new DefaultAppPaths(Path.Combine(builder.Environment.ContentRootPath, "data"));
 builder.Services.AddSingleton<IAppPaths>(paths);
+builder.Services.AddSingleton<IUserSettings>(new FileUserSettings(paths.DataDirectory));
 builder.Services.AddSingleton<IClipboardService, WebClipboardService>();
 builder.Services.AddSingleton<IFilePickerService, WebFilePickerService>();
 builder.Services.AddSingleton<IFileSaveService, WebFileSaveService>();

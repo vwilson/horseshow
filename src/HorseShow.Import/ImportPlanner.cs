@@ -24,9 +24,27 @@ public sealed class ImportPlanner(NameResolver resolver)
         {
             foreach (var raw in block.Rows)
             {
-                var row = Normalize(raw, mapping);
-                var cls = ClassFor(plan, classesByKey, block, raw, mapping);
-                cls.Rows.Add(row);
+                if (mapping.IsWide)
+                {
+                    foreach (var col in mapping.ClassColumns())
+                    {
+                        var cell = col < raw.Cells.Length ? raw.Cells[col].Trim() : string.Empty;
+                        if (cell.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        var row = Normalize(raw, mapping, placingOverride: cell);
+                        var cls = WideClassFor(plan, classesByKey, doc, col);
+                        cls.Rows.Add(row);
+                    }
+
+                    continue;
+                }
+
+                var single = Normalize(raw, mapping);
+                var target = ClassFor(plan, classesByKey, block, raw, mapping);
+                target.Rows.Add(single);
             }
         }
 
@@ -51,7 +69,7 @@ public sealed class ImportPlanner(NameResolver resolver)
         return plan;
     }
 
-    private static PlannedRow Normalize(RawRow raw, ColumnMapping mapping)
+    private static PlannedRow Normalize(RawRow raw, ColumnMapping mapping, string? placingOverride = null)
     {
         string? Cell(ImportField f)
         {
@@ -67,7 +85,7 @@ public sealed class ImportPlanner(NameResolver resolver)
 
         var row = new PlannedRow { LineNumber = raw.LineNumber };
 
-        var placingText = Cell(ImportField.Placing);
+        var placingText = placingOverride ?? Cell(ImportField.Placing);
         if (placingText is not null)
         {
             var parsed = PlacingParser.Parse(placingText);
@@ -86,6 +104,8 @@ public sealed class ImportPlanner(NameResolver resolver)
             row.Status = PlacingStatus.NoPlace;
             row.Issues.Add(ImportIssue.Warning("No placing; recorded as no place."));
         }
+
+        var hasPlacingSource = placingOverride is not null || mapping.Has(ImportField.Placing);
 
         row.BackNumber = Cell(ImportField.BackNumber);
         row.RiderText = Cell(ImportField.Rider);
@@ -133,7 +153,7 @@ public sealed class ImportPlanner(NameResolver resolver)
             row.Issues.Add(ImportIssue.Error("No rider or horse on this row."));
         }
 
-        if (row.Status == PlacingStatus.Placed && row.Placing is null && mapping.Has(ImportField.Placing))
+        if (row.Status == PlacingStatus.Placed && row.Placing is null && hasPlacingSource)
         {
             row.Issues.Add(ImportIssue.Error("No placing."));
         }
@@ -189,6 +209,24 @@ public sealed class ImportPlanner(NameResolver resolver)
         {
             cls.Name ??= name;
             cls.EntryCount ??= entries;
+        }
+
+        return cls;
+    }
+
+    /// <summary>In a wide sheet the column header names the class: "Class 12", "12 - HUS", or just "Hunter Under Saddle".</summary>
+    private static PlannedClass WideClassFor(ImportPlan plan, Dictionary<string, PlannedClass> byKey, ParsedDocument doc, int column)
+    {
+        var header = doc.HeaderText(column) ?? $"Column {column + 1}";
+        var parsed = Parsing.ClassHeaderParser.Parse(header, 0);
+        var number = parsed?.Number;
+        var name = parsed?.Name ?? (number is null ? header.Trim() : null);
+        var key = number is not null ? $"#{number}" : NameNormalizer.Normalize(name ?? header);
+        if (!byKey.TryGetValue(key, out var cls))
+        {
+            cls = new PlannedClass { Key = key, ClassNumber = number, Name = name, EntryCount = parsed?.EntryCount };
+            byKey[key] = cls;
+            plan.Classes.Add(cls);
         }
 
         return cls;

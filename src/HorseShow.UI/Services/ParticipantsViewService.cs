@@ -186,6 +186,53 @@ public sealed class ParticipantsViewService(IDbContextFactory<HorseShowDbContext
             ct);
     }
 
+    // ---- merge ----
+
+    /// <summary>
+    /// Folds <paramref name="sourceIds"/> into <paramref name="targetId"/>: results and aliases move,
+    /// the sources are deleted. A rider who shows up twice in one class after the merge keeps both rows;
+    /// the results grid shows it and the user decides.
+    /// </summary>
+    public async Task<int> MergeRidersAsync(int targetId, IEnumerable<int> sourceIds, CancellationToken ct = default)
+    {
+        var sources = sourceIds.Where(id => id != targetId).Distinct().ToList();
+        if (sources.Count == 0)
+        {
+            return 0;
+        }
+
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        _ = await db.Riders.FirstAsync(r => r.Id == targetId, ct);
+        var moved = await db.Results.Where(r => r.RiderId != null && sources.Contains(r.RiderId.Value))
+            .ExecuteUpdateAsync(u => u.SetProperty(r => r.RiderId, targetId), ct);
+        await db.RiderAliases.Where(a => sources.Contains(a.RiderId))
+            .ExecuteUpdateAsync(u => u.SetProperty(a => a.RiderId, targetId), ct);
+        await db.Riders.Where(r => sources.Contains(r.Id)).ExecuteDeleteAsync(ct);
+        await tx.CommitAsync(ct);
+        return moved;
+    }
+
+    public async Task<int> MergeHorsesAsync(int targetId, IEnumerable<int> sourceIds, CancellationToken ct = default)
+    {
+        var sources = sourceIds.Where(id => id != targetId).Distinct().ToList();
+        if (sources.Count == 0)
+        {
+            return 0;
+        }
+
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        _ = await db.Horses.FirstAsync(h => h.Id == targetId, ct);
+        var moved = await db.Results.Where(r => r.HorseId != null && sources.Contains(r.HorseId.Value))
+            .ExecuteUpdateAsync(u => u.SetProperty(r => r.HorseId, targetId), ct);
+        await db.HorseAliases.Where(a => sources.Contains(a.HorseId))
+            .ExecuteUpdateAsync(u => u.SetProperty(a => a.HorseId, targetId), ct);
+        await db.Horses.Where(h => sources.Contains(h.Id)).ExecuteDeleteAsync(ct);
+        await tx.CommitAsync(ct);
+        return moved;
+    }
+
     // ---- shared ----
 
     /// <summary>

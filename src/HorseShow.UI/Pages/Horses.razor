@@ -9,10 +9,11 @@
     <MudTextField @bind-Value="_search" Placeholder="Search" Immediate="true" DebounceInterval="200" OnDebounceIntervalElapsed="LoadAsync"
                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width: 280px" />
     <MudSwitch T="bool" @bind-Value="_includeArchived" @bind-Value:after="LoadAsync" Label="Show archived" Color="Color.Primary" />
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CallMerge" OnClick="Merge" Disabled="_selected.Count < 2" data-testid="merge-horses">Merge selected</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="Create" data-testid="new-horse">New horse</MudButton>
 </div>
 
-<MudTable T="HorseRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null">
+<MudTable T="HorseRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null" MultiSelection="true" @bind-SelectedItems="_selected" SelectOnRowClick="false">
     <HeaderContent>
         <MudTh>Name</MudTh>
         <MudTh>Owner</MudTh>
@@ -46,12 +47,30 @@
 @code {
     private List<HorseRow>? _rows;
     private string? _search;
+    private HashSet<HorseRow> _selected = [];
     private bool _includeArchived;
     private static readonly DialogOptions Options = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
-    private async Task LoadAsync() => _rows = await Participants.ListHorsesAsync(_includeArchived, _search);
+    private async Task LoadAsync()
+    {
+        _rows = await Participants.ListHorsesAsync(_includeArchived, _search);
+        _selected = [];
+    }
+
+    private async Task Merge()
+    {
+        var options = _selected.Select(r => new MergeDialog.Option(r.Horse.Id, r.Horse.Name, r.ResultCount)).ToList();
+        var dialog = await DialogService.ShowAsync<MergeDialog>("Merge horses", new DialogParameters<MergeDialog> { { x => x.Options, options } }, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: int keepId })
+        {
+            var moved = await Participants.MergeHorsesAsync(keepId, options.Select(o => o.Id));
+            Snackbar.Add($"Merged {options.Count - 1} horse(s), moved {moved} result(s).", Severity.Success);
+            await LoadAsync();
+        }
+    }
 
     private async Task Create() => await EditAsync(new HorseEdit(), "New horse");
 

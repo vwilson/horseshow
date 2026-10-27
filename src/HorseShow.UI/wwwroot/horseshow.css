@@ -6,3 +6,12 @@ html, body { height: 100%; }
 .results-table .mud-input-control { margin-top: 0; }
 
 .preview-table td { vertical-align: middle; }
+
+.file-drop-input { opacity: 0; cursor: pointer; }
+
+@media print {
+    .mud-appbar, .mud-drawer, .no-print, .mud-main-content > .mud-container > .d-flex > button, .mud-snackbar-provider { display: none !important; }
+    .mud-main-content { padding-top: 0 !important; margin-left: 0 !important; }
+    .mud-table, .mud-paper { box-shadow: none !important; border: none !important; }
+    body { background: white !important; }
+}

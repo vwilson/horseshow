@@ -7,11 +7,11 @@ See [docs/PLAN.md](docs/PLAN.md) for the implementation plan and phases.
 
 ## Status
 
-Phase 3 complete: paste, CSV and XLSX import through a four-step wizard (source, columns,
-names, preview) with auto-mapping, saved mapping profiles, fuzzy name matching, duplicate
-handling, and undo from import history. Built against a fixture corpus of plausible sheet
-shapes; see "Supporting a new results format" below. Next: Phase 4 (XLSX ergonomics, wide
-layouts) and Phase 5 (export, backup, packaging). Target framework is `net10.0` until the .NET 11 GA toolchain ships;
+All five planned phases are built. Latest: wide-layout import (one column per class),
+drag-and-drop files, standings export to CSV/Excel and print, show results export, backup
+and restore, database relocation, rider/horse merge, remembered theme and window state,
+and a tagged-release workflow. The MAUI host has not yet been built on a Windows machine;
+see "Distribution". Target framework is `net10.0` until the .NET 11 GA toolchain ships;
 flip `AppTargetFramework` in `Directory.Build.props` and the two version properties in
 `Directory.Packages.props` to move.
 
@@ -67,3 +67,21 @@ When a real sheet does not come through cleanly:
 
 Once a sheet imports with the right mapping, save the mapping as a profile from the Columns
 step; the next paste from the same source maps itself.
+
+## Distribution
+
+`dotnet publish src/HorseShow.App -c Release -r win-x64 -o publish` produces an unpackaged,
+self-contained folder; `publish\HorseShow.App.exe` runs on any Windows 10 1809+ machine with
+no installer. Pushing a tag like `v0.1.0` makes the `release` job build that folder, zip it
+and attach it to a GitHub release.
+
+For an installer or Store distribution, switch to MSIX: set `<WindowsPackageType>MSIX</WindowsPackageType>`
+in `src/HorseShow.App/HorseShow.App.csproj`, fill in the `Identity` and `Publisher` in
+`Platforms/Windows/Package.appxmanifest`, and sign with a certificate
+(`dotnet publish ... -p:GenerateAppxPackageOnBuild=true -p:AppxPackageSigningEnabled=true
+-p:PackageCertificateThumbprint=...`). For auto-update on top of the unpackaged build,
+[Velopack](https://velopack.io) wraps the publish folder and needs no code changes beyond a
+startup call; it was left out until a real distribution target exists.
+
+Data lives in `%LOCALAPPDATA%\HorseShow\horseshow.db` unless relocated from Settings.
+Backups go in a `backups` folder beside the database.

@@ -1,3 +1,4 @@
+using HorseShow.UI.Platform;
 using HorseShow.UI.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +15,8 @@ public sealed class ServiceFixture : IAsyncDisposable
     public DashboardViewService Dashboard { get; }
     public StandingsViewService Standings { get; }
     public SchedulesViewService Schedules { get; }
+    public MaintenanceViewService Maintenance { get; }
+    public string ExportDirectory { get; }
 
     private ServiceFixture()
     {
@@ -24,6 +27,9 @@ public sealed class ServiceFixture : IAsyncDisposable
         Standings = new StandingsViewService(Db.Factory);
         Schedules = new SchedulesViewService(Db.Factory);
         Dashboard = new DashboardViewService(Db.Factory, Active, Standings);
+        ExportDirectory = Path.Combine(Db.Directory, "exports");
+        var paths = new DefaultAppPaths(Db.Directory);
+        Maintenance = new MaintenanceViewService(Db.Initializer, Db.Options, paths, Db.Factory, new FolderFileSave(ExportDirectory));
     }
 
     public static async Task<ServiceFixture> CreateAsync()
@@ -34,4 +40,17 @@ public sealed class ServiceFixture : IAsyncDisposable
     }
 
     public ValueTask DisposeAsync() => Db.DisposeAsync();
+}
+
+/// <summary>Writes "saved" files into a folder, like the dev host does.</summary>
+public sealed class FolderFileSave(string directory) : IFileSaveService
+{
+    public async Task<string?> SaveAsync(string suggestedFileName, Stream content)
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, suggestedFileName);
+        await using var f = File.Create(path);
+        await content.CopyToAsync(f);
+        return path;
+    }
 }

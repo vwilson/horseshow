@@ -141,7 +141,8 @@ public static class ImportCommitter
                     PointsSource = row.Points is null ? PointsSource.Computed : PointsSource.Imported,
                     ImportBatchId = batch.Id,
                 };
-                db.Results.Add(result);
+                // Adding through the tracked class's collection is enough; EF tracks it as Added on save.
+                // Adding to the DbSet as well would leave the collection holding the entity twice.
                 cls.Results.Add(result);
                 if (duplicate is null)
                 {

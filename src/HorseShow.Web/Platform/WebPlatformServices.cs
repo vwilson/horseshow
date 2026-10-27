@@ -2,13 +2,6 @@ using HorseShow.UI.Platform;
 
 namespace HorseShow.Web.Platform;
 
-public sealed class WebAppPaths(string dataDirectory) : IAppPaths
-{
-    public string DataDirectory { get; } = dataDirectory;
-    public string DatabasePath { get; } = Path.Combine(dataDirectory, Data.DatabaseOptions.DefaultFileName);
-    public string BackupDirectory { get; } = Path.Combine(dataDirectory, "backups");
-}
-
 /// <summary>Browser clipboard needs JS interop and a user gesture; the Import page handles that path itself in Phase 3.</summary>
 public sealed class WebClipboardService : IClipboardService
 {

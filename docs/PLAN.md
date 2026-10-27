@@ -439,14 +439,24 @@ batch's results plus any classes and show the batch created that are now empty. 
 without the real sheet, against six fixture shapes; the README describes the three places
 a new format might need a line.
 
-**Phase 4: Import, XLSX and ergonomics**
+**Phase 4: Import, XLSX and ergonomics** (done)
 ClosedXML reader with sheet selection, wide-layout support if needed by then,
 "Apply to all similar", combined rider/horse column splitting.
+As built: wide layouts map each class column to `ImportField.ClassPlacing` and fan out one
+planned row per filled cell; file drop zone on the Source step. "Apply to all similar" was
+unnecessary: resolution is already per distinct name.
 
-**Phase 5: Polish and distribution**
+**Phase 5: Polish and distribution** (done)
 Export standings to CSV/XLSX and a print-friendly view, backup/restore, merge
 duplicate riders/horses, settings, window state. MSIX packaging or a plain
 self-contained publish with an installer (Inno Setup / Velopack if auto-update is wanted).
+As built: exports through `IFileSaveService` (native save dialog on Windows, exports folder
+on the dev host); print via `window.print` with print CSS; backups listed/restored/deleted
+and restorable from an uploaded file, with a pre-restore backup; database relocation through
+a `paths.json` override read at startup; merge via multi-select on the Riders and Horses
+pages; theme persisted through `IUserSettings` (Preferences on MAUI, JSON on the dev host);
+window size/position remembered on MAUI; tagged-release workflow zips the unpackaged
+win-x64 publish. MSIX and Velopack are documented, not wired.
 
 ---
 

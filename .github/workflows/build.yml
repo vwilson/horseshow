@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -47,3 +48,24 @@ jobs:
         with:
           name: HorseShow-win-x64
           path: publish
+
+  # Tagged releases: unpackaged self-contained win-x64 build, zipped. See README "Distribution".
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [core, windows]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet workload install maui-windows
+      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 -o publish -p:ApplicationDisplayVersion=${{ github.ref_name }}
+      - run: Compress-Archive -Path publish\* -DestinationPath HorseShow-${{ github.ref_name }}-win-x64.zip
+        shell: pwsh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: HorseShow-${{ github.ref_name }}-win-x64.zip
+          generate_release_notes: true
