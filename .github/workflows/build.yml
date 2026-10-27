@@ -43,7 +43,8 @@ jobs:
       - run: dotnet workload install maui-windows
       - run: dotnet restore HorseShow.slnx
       - run: dotnet build HorseShow.slnx -c Release --no-restore
-      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --no-restore -o publish
+      # No --no-restore: publish needs the win-x64 runtime and ReadyToRun packs, which a Debug restore skips.
+      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --self-contained -o publish
       - uses: actions/upload-artifact@v4
         with:
           name: HorseShow-win-x64
@@ -62,7 +63,12 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet workload install maui-windows
-      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 -o publish -p:ApplicationDisplayVersion=${{ github.ref_name }}
+      # ApplicationDisplayVersion must be a plain version ("0.1.0"); the tag carries a "v" prefix.
+      - id: version
+        shell: pwsh
+        run: |
+          "number=$($env:GITHUB_REF_NAME.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --self-contained -o publish -p:ApplicationDisplayVersion=${{ steps.version.outputs.number }}
       - run: Compress-Archive -Path publish\* -DestinationPath HorseShow-${{ github.ref_name }}-win-x64.zip
         shell: pwsh
       - uses: softprops/action-gh-release@v2

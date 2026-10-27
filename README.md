@@ -32,13 +32,17 @@ dotnet workload install maui-windows
 dotnet build src/HorseShow.App
 dotnet run --project src/HorseShow.App -f net10.0-windows10.0.19041.0
 
+# Whole solution, including the desktop app (Windows only; on Linux/macOS build the Web host above)
+dotnet build HorseShow.slnx
+
 # Add a migration after changing the model
 dotnet ef migrations add <Name> --project src/HorseShow.Data --output-dir Migrations
 ```
 
 The Web host keeps its database in `src/HorseShow.Web/data/` (ignored by git).
-The desktop app keeps its database under `FileSystem.AppDataDirectory\HorseShow\`,
-which is `%LOCALAPPDATA%\HorseShow\` when run unpackaged.
+The desktop app keeps its database in `%LOCALAPPDATA%\HorseShow\horseshow.db` with backups in
+`%LOCALAPPDATA%\HorseShow\backups\`. Theme and window placement go through MAUI `Preferences`,
+which an unpackaged app stores in `%LOCALAPPDATA%\Victor Wilson\com.vwilson.horseshow\Settings\`.
 
 ## Layout
 
@@ -82,10 +86,13 @@ step; the next paste from the same source maps itself.
 
 ## Distribution
 
-`dotnet publish src/HorseShow.App -c Release -r win-x64 -o publish` produces an unpackaged,
-self-contained folder; `publish\HorseShow.App.exe` runs on any Windows 10 1809+ machine with
-no installer. Pushing a tag like `v0.1.0` makes the `release` job build that folder, zip it
-and attach it to a GitHub release.
+`dotnet publish src/HorseShow.App -c Release -r win-x64 --self-contained -o publish` produces an
+unpackaged, self-contained folder; `publish\HorseShow.App.exe` runs on any Windows 10 1809+ machine
+with no installer, as long as the WebView2 Runtime is present (it ships with Windows 11 and with
+Edge on Windows 10). Without `--self-contained` the folder needs the .NET 10 Desktop Runtime
+installed; the Windows App SDK is bundled either way. Pushing a tag like `v0.1.0` makes the
+`release` job build that folder (with the `v` stripped from the version), zip it and attach it to
+a GitHub release.
 
 For an installer or Store distribution, switch to MSIX: set `<WindowsPackageType>MSIX</WindowsPackageType>`
 in `src/HorseShow.App/HorseShow.App.csproj`, fill in the `Identity` and `Publisher` in

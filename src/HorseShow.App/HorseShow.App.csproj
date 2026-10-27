@@ -3,7 +3,8 @@
     MAUI Blazor Hybrid host, Windows only. Builds on Windows with the maui-windows workload:
       dotnet workload install maui-windows
       dotnet build src/HorseShow.App
-    On Linux/macOS build src/HorseShow.Web instead; this project is skipped there.
+    On Linux/macOS build src/HorseShow.Web instead: the WinUI XAML compiler and MakePri are Windows-only,
+    so this project cannot build there and `dotnet build HorseShow.slnx` is Windows-only too.
   -->
   <PropertyGroup>
     <TargetFrameworks>$(AppTargetFramework)-windows$(WindowsTargetPlatformVersion)</TargetFrameworks>
