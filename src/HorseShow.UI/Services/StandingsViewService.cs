@@ -5,10 +5,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HorseShow.UI.Services;
 
+public sealed record StandingsSection(string Title, string? RiderGroup, IReadOnlyList<StandingLine> Lines);
+
 public sealed record StandingsPage(
     Season Season,
     List<Division> Divisions,
     IReadOnlyList<StandingLine> Lines,
+    IReadOnlyList<StandingsSection> Sections,
+    List<string> RiderGroups,
+    int UngroupedRiders,
     int UnassignedClasses,
     int FallbackEntryCountClasses,
     bool HasSchedule);
@@ -17,7 +22,9 @@ public sealed class StandingsViewService(IDbContextFactory<HorseShowDbContext> f
 {
     private readonly StandingsCalculator _calculator = new();
 
-    public async Task<StandingsPage?> GetAsync(int seasonId, StandingsBasis? basis, int? divisionId, CancellationToken ct = default)
+    /// <param name="riderGroup">Null: all riders. Empty string: riders with no group. Otherwise one group.</param>
+    /// <param name="sectionByGroup">When true, <see cref="StandingsPage.Sections"/> holds one independently ranked table per rider group.</param>
+    public async Task<StandingsPage?> GetAsync(int seasonId, StandingsBasis? basis, int? divisionId, string? riderGroup = null, bool sectionByGroup = false, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var season = await db.Seasons.AsNoTracking()
@@ -37,8 +44,28 @@ public sealed class StandingsViewService(IDbContextFactory<HorseShowDbContext> f
             .Include(r => r.Horse)
             .ToListAsync(ct);
 
-        var options = new StandingsOptions(basis ?? season.StandingsBasis, divisionId, season.TopNShowsCounted, season.MinShowsForAward);
+        var effectiveBasis = basis ?? season.StandingsBasis;
+        var options = new StandingsOptions(effectiveBasis, divisionId, season.TopNShowsCounted, season.MinShowsForAward, riderGroup);
         var lines = _calculator.Compute(results, options);
+
+        var groups = results.Select(r => r.Rider?.Group?.Trim()).Where(g => !string.IsNullOrEmpty(g))
+            .GroupBy(g => g!, StringComparer.OrdinalIgnoreCase).Select(g => g.Key)
+            .OrderBy(g => g, StringComparer.OrdinalIgnoreCase).ToList();
+        var ungrouped = results.Where(r => r.RiderId is not null && string.IsNullOrWhiteSpace(r.Rider?.Group)).Select(r => r.RiderId).Distinct().Count();
+
+        var sections = new List<StandingsSection>();
+        if (sectionByGroup && effectiveBasis != StandingsBasis.Horse)
+        {
+            foreach (var g in groups)
+            {
+                sections.Add(new StandingsSection(g, g, _calculator.Compute(results, options with { RiderGroup = g })));
+            }
+
+            if (ungrouped > 0)
+            {
+                sections.Add(new StandingsSection("No group", string.Empty, _calculator.Compute(results, options with { RiderGroup = string.Empty })));
+            }
+        }
 
         var classes = await db.ShowClasses.AsNoTracking()
             .Where(c => c.Show!.SeasonId == seasonId)
@@ -50,6 +77,9 @@ public sealed class StandingsViewService(IDbContextFactory<HorseShowDbContext> f
             season,
             season.Divisions.ToList(),
             lines,
+            sections,
+            groups,
+            ungrouped,
             classes.Count(c => c.DivisionId is null && c.HasResults),
             classes.Count(c => c.EntryCount is null && c.HasResults),
             hasSchedule);

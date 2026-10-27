@@ -9,6 +9,7 @@
     <MudTextField @bind-Value="_search" Placeholder="Search" Immediate="true" DebounceInterval="200" OnDebounceIntervalElapsed="LoadAsync"
                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" Margin="Margin.Dense" Variant="Variant.Outlined" Style="max-width: 280px" />
     <MudSwitch T="bool" @bind-Value="_includeArchived" @bind-Value:after="LoadAsync" Label="Show archived" Color="Color.Primary" />
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Groups" OnClick="SetGroup" Disabled="_selected.Count == 0" data-testid="set-group">Set group…</MudButton>
     <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CallMerge" OnClick="Merge" Disabled="_selected.Count < 2" data-testid="merge-riders">Merge selected</MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="Create" data-testid="new-rider">New rider</MudButton>
 </div>
@@ -16,6 +17,7 @@
 <MudTable T="RiderRow" Items="_rows" Hover="true" Dense="true" Loading="_rows is null" MultiSelection="true" @bind-SelectedItems="_selected" SelectOnRowClick="false">
     <HeaderContent>
         <MudTh>Name</MudTh>
+        <MudTh>Group</MudTh>
         <MudTh>Barn</MudTh>
         <MudTh>Also known as</MudTh>
         <MudTh Style="text-align:right">Results</MudTh>
@@ -27,6 +29,7 @@
             @if (!string.IsNullOrEmpty(context.Rider.DisplayName)) { <span class="mud-text-secondary"> (@context.Rider.DisplayName)</span> }
             @if (context.Rider.IsArchived) { <MudChip T="string" Size="Size.Small" Class="ml-2">archived</MudChip> }
         </MudTd>
+        <MudTd DataLabel="Group">@context.Rider.Group</MudTd>
         <MudTd DataLabel="Barn">@context.Rider.Barn</MudTd>
         <MudTd DataLabel="Also known as" Class="mud-text-secondary">@string.Join(", ", context.Rider.Aliases.Select(a => a.Alias).Where(a => a != HorseShow.Core.Text.NameNormalizer.Normalize(context.Rider.Name)))</MudTd>
         <MudTd DataLabel="Results" Style="text-align:right">@context.ResultCount</MudTd>
@@ -56,6 +59,21 @@
     {
         _rows = await Participants.ListRidersAsync(_includeArchived, _search);
         _selected = [];
+    }
+
+    private async Task SetGroup()
+    {
+        var groups = await Participants.ListRiderGroupsAsync();
+        var parameters = new DialogParameters<GroupDialog> { { x => x.Groups, groups }, { x => x.Count, _selected.Count } };
+        var dialog = await DialogService.ShowAsync<GroupDialog>("Set group", parameters, Options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            var group = result.Data as string;
+            var n = await Participants.SetRiderGroupAsync(_selected.Select(r => r.Rider.Id), group);
+            Snackbar.Add(string.IsNullOrWhiteSpace(group) ? $"Cleared the group on {n} rider(s)." : $"Put {n} rider(s) in \"{group}\".", Severity.Success);
+            await LoadAsync();
+        }
     }
 
     private async Task Merge()

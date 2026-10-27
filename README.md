@@ -52,10 +52,22 @@ which is `%LOCALAPPDATA%\HorseShow\` when run unpackaged.
 | `src/HorseShow.Web` | Dev-only Blazor Server host for the shared UI. |
 | `tests/*` | xUnit. Data and UI service tests run against a real SQLite file via `HorseShow.TestSupport`. |
 
+## Rider groups
+
+Riders carry an optional group such as "18 & Over", "50 & Over" or "Juvenile" (Riders page:
+edit one, or select several and "Set group…"). Standings can then be filtered to one group or
+shown as sections, each ranked independently, so a 50 & Over rider who placed second in a
+mixed class still leads the 50 & Over table. Groups are a rider attribute, not per season:
+update a rider's group when they move up a bracket.
+
 ## Supporting a new results format
 
-Most sheets work without changes: the importer detects the delimiter, finds the header row,
-recognises class headings, and maps columns by header name or by the shape of the values.
+Most sheets work without changes: the importer detects the delimiter (tab, comma, pipe,
+semicolon, runs of spaces, or " - " between fields as in `1. Horse - Rider - Owner` listings
+from results sites), finds the header row, recognises class headings, and maps columns by
+header name or by the shape of the values. Headerless listings default to rider-then-horse;
+when a source lists the horse first, swap the two on the Columns step once and save the
+mapping as a profile.
 When a real sheet does not come through cleanly:
 
 1. Save it under `tests/HorseShow.Import.Tests/Fixtures/` and add a test that parses it.

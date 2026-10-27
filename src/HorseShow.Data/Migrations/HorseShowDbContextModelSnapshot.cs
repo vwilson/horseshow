@@ -315,6 +315,10 @@ namespace HorseShow.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Group")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsArchived")
                         .HasColumnType("INTEGER");
 
@@ -327,6 +331,8 @@ namespace HorseShow.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Group");
 
                     b.HasIndex("Name");
 

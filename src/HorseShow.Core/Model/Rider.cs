@@ -6,6 +6,9 @@ public class Rider
     public required string Name { get; set; }
     public string? DisplayName { get; set; }
     public string? Barn { get; set; }
+
+    /// <summary>Age or eligibility bracket the rider competes in this year, e.g. "18 &amp; Over", "50 &amp; Over", "Juvenile". Standings can be filtered or sectioned by it.</summary>
+    public string? Group { get; set; }
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
 

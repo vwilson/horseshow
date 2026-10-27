@@ -20,6 +20,21 @@
                 <MudSelectItem T="int?" Value="d.Id">@d.Name</MudSelectItem>
             }
         </MudSelect>
+        @if (_basis != StandingsBasis.Horse && (_page.RiderGroups.Count > 0 || _page.UngroupedRiders > 0))
+        {
+            <MudSelect T="string" Value="_groupChoice" ValueChanged="OnGroupChanged" Label="Rider group" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width: 200px" Dense="true" data-testid="group-filter">
+                <MudSelectItem T="string" Value="@AllGroups">All riders</MudSelectItem>
+                <MudSelectItem T="string" Value="@Sectioned">Sections by group</MudSelectItem>
+                @foreach (var g in _page.RiderGroups)
+                {
+                    <MudSelectItem T="string" Value="@g">@g</MudSelectItem>
+                }
+                @if (_page.UngroupedRiders > 0)
+                {
+                    <MudSelectItem T="string" Value="@NoGroup">No group (@_page.UngroupedRiders)</MudSelectItem>
+                }
+            </MudSelect>
+        }
         <MudSelect T="StandingsBasis" Value="_basis" ValueChanged="OnBasisChanged" Label="By" Margin="Margin.Dense" Variant="Variant.Outlined" Style="min-width: 180px" Dense="true">
             <MudSelectItem Value="StandingsBasis.Rider">Rider</MudSelectItem>
             <MudSelectItem Value="StandingsBasis.Horse">Horse</MudSelectItem>
@@ -69,85 +84,92 @@ else
         @RulesText()
     </MudText>
 
-    <MudTable T="StandingLine" Items="_page.Lines" Hover="true" Dense="true" Elevation="0" Outlined="true"
-              OnRowClick="ToggleRow" RowClass="cursor-pointer" RowStyleFunc="@((l, i) => l.Eligible ? "" : "opacity: 0.55")">
-        <HeaderContent>
-            <MudTh Style="width: 60px">#</MudTh>
-            <MudTh>@(_basis == StandingsBasis.Horse ? "Horse" : "Rider")</MudTh>
-            @if (_basis == StandingsBasis.Combination)
-            {
-                <MudTh>Horse</MudTh>
-            }
-            <MudTh Style="text-align:right">Shows</MudTh>
-            <MudTh Style="text-align:right">Classes</MudTh>
-            <MudTh Style="text-align:right">1st</MudTh>
-            <MudTh Style="text-align:right">2nd</MudTh>
-            <MudTh Style="text-align:right">3rd</MudTh>
-            @if (_season.TopNShowsCounted is not null)
-            {
-                <MudTh Style="text-align:right">Total</MudTh>
-            }
-            <MudTh Style="text-align:right"><b>Points</b></MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd DataLabel="#">@context.Rank</MudTd>
-            <MudTd DataLabel="Name">
-                @context.Name
-                @if (!context.Eligible)
+    @foreach (var sec in Sections())
+    {
+        @if (sec.Title is not null)
+        {
+            <MudText Typo="Typo.h6" Class="mt-4 mb-1">@sec.Title <span class="mud-text-secondary" style="font-weight: normal">· @sec.Lines.Count</span></MudText>
+        }
+        <MudTable T="StandingLine" Items="@sec.Lines" Hover="true" Dense="true" Elevation="0" Outlined="true"
+                  OnRowClick="ToggleRow" RowClass="cursor-pointer" RowStyleFunc="@((l, i) => l.Eligible ? "" : "opacity: 0.55")">
+            <HeaderContent>
+                <MudTh Style="width: 60px">#</MudTh>
+                <MudTh>@(_basis == StandingsBasis.Horse ? "Horse" : "Rider")</MudTh>
+                @if (_basis == StandingsBasis.Combination)
                 {
-                    <MudTooltip Text="@($"Fewer than {_season.MinShowsForAward} shows")">
-                        <MudChip T="string" Size="Size.Small" Class="ml-2">not eligible</MudChip>
-                    </MudTooltip>
+                    <MudTh>Horse</MudTh>
                 }
-            </MudTd>
-            @if (_basis == StandingsBasis.Combination)
-            {
-                <MudTd DataLabel="Horse">@context.SecondaryName</MudTd>
-            }
-            <MudTd Style="text-align:right">@context.Shows</MudTd>
-            <MudTd Style="text-align:right">@context.Classes</MudTd>
-            <MudTd Style="text-align:right">@context.Firsts</MudTd>
-            <MudTd Style="text-align:right">@context.Seconds</MudTd>
-            <MudTd Style="text-align:right">@context.Thirds</MudTd>
-            @if (_season.TopNShowsCounted is not null)
-            {
-                <MudTd Style="text-align:right" Class="mud-text-secondary">@Pts(context.TotalPoints)</MudTd>
-            }
-            <MudTd Style="text-align:right"><b>@Pts(context.CountedPoints)</b></MudTd>
-        </RowTemplate>
-        <ChildRowContent>
-            @if (_open.Contains(context.Key))
-            {
-                <MudTr>
-                    <td colspan="12" class="pa-0">
-                        <MudPaper Class="pa-3 ml-12" Elevation="0" Square="true">
-                            <MudText Typo="Typo.subtitle2" Class="mb-1">Per show</MudText>
-                            <MudSimpleTable Dense="true" Elevation="0" Style="max-width: 640px">
-                                <thead>
-                                    <tr><th>Date</th><th>Show</th><th style="text-align:right">Classes</th><th style="text-align:right">Points</th><th></th></tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var s in context.PerShow)
-                                    {
-                                        <tr style="@(s.Counted ? "" : "opacity: 0.55")">
-                                            <td>@s.Date.ToString("MMM d")</td>
-                                            <td><MudLink Href="@($"shows/{s.ShowId}")">@s.ShowName</MudLink></td>
-                                            <td style="text-align:right">@s.Classes</td>
-                                            <td style="text-align:right">@Pts(s.Points)</td>
-                                            <td>@(s.Counted ? "" : "not counted")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </MudSimpleTable>
-                        </MudPaper>
-                    </td>
-                </MudTr>
-            }
-        </ChildRowContent>
-        <NoRecordsContent>
-            <MudText Class="mud-text-secondary">No scored results yet@(_divisionId is null ? "" : " in this division").</MudText>
-        </NoRecordsContent>
-    </MudTable>
+                <MudTh Style="text-align:right">Shows</MudTh>
+                <MudTh Style="text-align:right">Classes</MudTh>
+                <MudTh Style="text-align:right">1st</MudTh>
+                <MudTh Style="text-align:right">2nd</MudTh>
+                <MudTh Style="text-align:right">3rd</MudTh>
+                @if (_season.TopNShowsCounted is not null)
+                {
+                    <MudTh Style="text-align:right">Total</MudTh>
+                }
+                <MudTh Style="text-align:right"><b>Points</b></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="#">@context.Rank</MudTd>
+                <MudTd DataLabel="Name">
+                    @context.Name
+                    @if (!context.Eligible)
+                    {
+                        <MudTooltip Text="@($"Fewer than {_season.MinShowsForAward} shows")">
+                            <MudChip T="string" Size="Size.Small" Class="ml-2">not eligible</MudChip>
+                        </MudTooltip>
+                    }
+                </MudTd>
+                @if (_basis == StandingsBasis.Combination)
+                {
+                    <MudTd DataLabel="Horse">@context.SecondaryName</MudTd>
+                }
+                <MudTd Style="text-align:right">@context.Shows</MudTd>
+                <MudTd Style="text-align:right">@context.Classes</MudTd>
+                <MudTd Style="text-align:right">@context.Firsts</MudTd>
+                <MudTd Style="text-align:right">@context.Seconds</MudTd>
+                <MudTd Style="text-align:right">@context.Thirds</MudTd>
+                @if (_season.TopNShowsCounted is not null)
+                {
+                    <MudTd Style="text-align:right" Class="mud-text-secondary">@Pts(context.TotalPoints)</MudTd>
+                }
+                <MudTd Style="text-align:right"><b>@Pts(context.CountedPoints)</b></MudTd>
+            </RowTemplate>
+            <ChildRowContent>
+                @if (_open.Contains(context.Key))
+                {
+                    <MudTr>
+                        <td colspan="12" class="pa-0">
+                            <MudPaper Class="pa-3 ml-12" Elevation="0" Square="true">
+                                <MudText Typo="Typo.subtitle2" Class="mb-1">Per show</MudText>
+                                <MudSimpleTable Dense="true" Elevation="0" Style="max-width: 640px">
+                                    <thead>
+                                        <tr><th>Date</th><th>Show</th><th style="text-align:right">Classes</th><th style="text-align:right">Points</th><th></th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var s in context.PerShow)
+                                        {
+                                            <tr style="@(s.Counted ? "" : "opacity: 0.55")">
+                                                <td>@s.Date.ToString("MMM d")</td>
+                                                <td><MudLink Href="@($"shows/{s.ShowId}")">@s.ShowName</MudLink></td>
+                                                <td style="text-align:right">@s.Classes</td>
+                                                <td style="text-align:right">@Pts(s.Points)</td>
+                                                <td>@(s.Counted ? "" : "not counted")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                            </MudPaper>
+                        </td>
+                    </MudTr>
+                }
+            </ChildRowContent>
+            <NoRecordsContent>
+                <MudText Class="mud-text-secondary">No scored results yet@(_divisionId is null ? "" : " in this division").</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    }
 }
 
 @code {
@@ -155,7 +177,28 @@ else
     private StandingsPage? _page;
     private StandingsBasis _basis;
     private int? _divisionId;
+    private const string AllGroups = "__all__";
+    private const string Sectioned = "__sections__";
+    private const string NoGroup = "__none__";
+    private string _groupChoice = AllGroups;
     private readonly HashSet<string> _open = [];
+
+    private string? GroupFilter => _groupChoice switch { AllGroups or Sectioned => null, NoGroup => string.Empty, var g => g };
+
+    private IEnumerable<(string? Title, IReadOnlyList<StandingLine> Lines)> Sections()
+    {
+        if (_page is null) yield break;
+        if (_groupChoice == Sectioned && _page.Sections.Count > 0)
+        {
+            foreach (var s in _page.Sections) yield return (s.Title, s.Lines);
+        }
+        else
+        {
+            yield return (null, _page.Lines);
+        }
+    }
+
+    private async Task OnGroupChanged(string choice) { _groupChoice = choice; await LoadAsync(); }
 
     protected override async Task OnInitializedAsync()
     {
@@ -171,7 +214,7 @@ else
 
     private async Task LoadAsync()
     {
-        _page = _season is null ? null : await StandingsSvc.GetAsync(_season.Id, _basis, _divisionId);
+        _page = _season is null ? null : await StandingsSvc.GetAsync(_season.Id, _basis, _divisionId, GroupFilter, _groupChoice == Sectioned);
     }
 
     private void OnSeasonChanged() => InvokeAsync(async () =>
@@ -198,7 +241,8 @@ else
     private static string Pts(decimal v) => v.ToString("0.###");
 
     private HorseShow.Import.Export.Exporters.StandingsExport ExportModel()
-        => new(_season!.Name, _basis.ToString(), _page!.Divisions.FirstOrDefault(d => d.Id == _divisionId)?.Name, _season.TopNShowsCounted is not null, _page.Lines);
+        => new(_season!.Name, _basis.ToString(), _page!.Divisions.FirstOrDefault(d => d.Id == _divisionId)?.Name, _season.TopNShowsCounted is not null,
+               _groupChoice == Sectioned ? _page.Sections.SelectMany(x => x.Lines).ToList() : _page.Lines);
 
     private async Task Export(bool excel)
     {
@@ -227,6 +271,8 @@ else
     private string RulesText()
     {
         var parts = new List<string> { $"Standings by {_basis.ToString().ToLowerInvariant()}" };
+        if (_groupChoice == Sectioned) parts.Add("ranked within each rider group");
+        else if (GroupFilter is { } gf) parts.Add(gf.Length == 0 ? "riders with no group" : $"rider group {gf}");
         if (_season!.TopNShowsCounted is int n) parts.Add($"best {n} shows count");
         if (_season.MinShowsForAward is int m) parts.Add($"minimum {m} shows to be eligible");
         parts.Add("ties broken by firsts, seconds, thirds, then shows attended");

@@ -20,17 +20,17 @@ public class ExportersTests
         var csv = Exporters.StandingsCsv(Sample());
         var lines = csv.TrimEnd().Split('\n');
 
-        Assert.Equal("Rank,Rider,Shows,Classes,1st,2nd,3rd,Points,Eligible", lines[0]);
-        Assert.Equal("1,Jane Smith,2,3,1,1,0,16,yes", lines[1]);
-        Assert.Equal("2,\"Bob, Jones\",1,1,0,0,0,6.5,no", lines[2]);
+        Assert.Equal("Rank,Rider,Group,Shows,Classes,1st,2nd,3rd,Points,Eligible", lines[0]);
+        Assert.Equal("1,Jane Smith,,2,3,1,1,0,16,yes", lines[1]);
+        Assert.Equal("2,\"Bob, Jones\",,1,1,0,0,0,6.5,no", lines[2]);
     }
 
     [Fact]
     public void Csv_adds_total_column_under_top_n()
     {
         var csv = Exporters.StandingsCsv(Sample(topN: true));
-        Assert.StartsWith("Rank,Rider,Shows,Classes,1st,2nd,3rd,Total,Points,Eligible", csv);
-        Assert.Contains("1,Jane Smith,2,3,1,1,0,20,16,yes", csv);
+        Assert.StartsWith("Rank,Rider,Group,Shows,Classes,1st,2nd,3rd,Total,Points,Eligible", csv);
+        Assert.Contains("1,Jane Smith,,2,3,1,1,0,20,16,yes", csv);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class ExportersTests
         var ws = wb.Worksheet("Standings");
         Assert.Equal("Rank", ws.Cell(3, 1).GetString());
         Assert.Equal("Jane Smith", ws.Cell(4, 2).GetString());
-        Assert.Equal(16, ws.Cell(4, 8).GetDouble());
+        Assert.Equal(16, ws.Cell(4, 9).GetDouble());
         Assert.Equal(2, wb.Worksheet("Per show").RowsUsed().Count() - 1);
     }
 

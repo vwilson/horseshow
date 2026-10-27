@@ -27,7 +27,7 @@ public sealed class ParticipantsViewService(IDbContextFactory<HorseShowDbContext
         {
             var key = NameNormalizer.Normalize(search);
             var raw = search.Trim();
-            q = q.Where(r => r.Aliases.Any(a => a.Alias.Contains(key)) || r.Name.Contains(raw) || (r.Barn != null && r.Barn.Contains(raw)));
+            q = q.Where(r => r.Aliases.Any(a => a.Alias.Contains(key)) || r.Name.Contains(raw) || (r.Barn != null && r.Barn.Contains(raw)) || (r.Group != null && r.Group.Contains(raw)));
         }
 
         return await q.OrderBy(r => r.Name)
@@ -52,6 +52,7 @@ public sealed class ParticipantsViewService(IDbContextFactory<HorseShowDbContext
         rider.Name = edit.Name.Trim();
         rider.DisplayName = Clean(edit.DisplayName);
         rider.Barn = Clean(edit.Barn);
+        rider.Group = Clean(edit.Group);
         rider.Notes = Clean(edit.Notes);
 
         var wanted = NormalizedAliasSet(edit.Aliases, rider.Name);
@@ -67,6 +68,22 @@ public sealed class ParticipantsViewService(IDbContextFactory<HorseShowDbContext
         SyncAliases(rider.Aliases, wanted, a => a.Alias, alias => new RiderAlias { Alias = alias });
         await db.SaveChangesAsync(ct);
         return rider;
+    }
+
+    /// <summary>Distinct rider groups in use, for pickers. Case-insensitive, first spelling wins.</summary>
+    public async Task<List<string>> ListRiderGroupsAsync(CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var groups = await db.Riders.AsNoTracking().Where(r => r.Group != null && r.Group != "").Select(r => r.Group!).ToListAsync(ct);
+        return groups.GroupBy(g => g.Trim(), StringComparer.OrdinalIgnoreCase).Select(g => g.First().Trim()).OrderBy(g => g, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    public async Task<int> SetRiderGroupAsync(IEnumerable<int> riderIds, string? group, CancellationToken ct = default)
+    {
+        var ids = riderIds.Distinct().ToList();
+        var value = Clean(group);
+        await using var db = await factory.CreateDbContextAsync(ct);
+        return await db.Riders.Where(r => ids.Contains(r.Id)).ExecuteUpdateAsync(u => u.SetProperty(r => r.Group, value), ct);
     }
 
     public async Task SetRiderArchivedAsync(int id, bool archived, CancellationToken ct = default)

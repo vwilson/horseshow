@@ -29,7 +29,7 @@ public sealed class DashboardViewService(IDbContextFactory<HorseShowDbContext> f
             .Select(s => new ShowRow(s, s.Classes.Count, s.Classes.SelectMany(c => c.Results).Count()))
             .ToListAsync(ct);
 
-        var page = await standings.GetAsync(season.Id, null, null, ct);
+        var page = await standings.GetAsync(season.Id, null, null, ct: ct);
         var leaders = page?.Lines.Where(l => l.Eligible).Take(5).ToList() ?? [];
         return new DashboardSummary(season, shows, results, riders, horses, recent, leaders);
     }

@@ -114,12 +114,15 @@ public static class AutoMapper
         var total = values.Count;
         var placingLike = values.Count(PlacingParser.LooksLikePlacing);
         var ordinal = values.Count(v => PlacingParser.IsOrdinalWord(v));
-        var ints = values.Select(v => int.TryParse(v, out var n) ? n : (int?)null).ToList();
+        // "1." and "1)" are list-style placings, not decimals.
+        var listStyle = values.Count(v => v.Length > 1 && (v.EndsWith('.') || v.EndsWith(')')) && int.TryParse(v[..^1], out _));
+        var cleaned = values.Select(v => v.TrimEnd('.', ')')).ToList();
+        var ints = cleaned.Select(v => int.TryParse(v, out var n) ? n : (int?)null).ToList();
         var intCount = ints.Count(n => n is not null);
-        var decimals = values.Count(v => v.Contains('.') && decimal.TryParse(v.TrimEnd('%'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out _));
+        var decimals = cleaned.Count(v => v.Contains('.') && decimal.TryParse(v.TrimEnd('%'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out _));
         var statusTokens = values.Count(v => PlacingParser.ParseStatusToken(v) is not null);
 
-        if (ordinal + statusTokens > 0 && placingLike == total)
+        if (ordinal + statusTokens + listStyle > 0 && placingLike == total)
         {
             return (ImportField.Placing, 0.9);
         }
@@ -138,7 +141,7 @@ public static class AutoMapper
         {
             // Placings restart at 1 in every block and stay small; back numbers do not.
             var perBlock = doc.Blocks.Select(b => b.Rows
-                .Select(r => column < r.Cells.Length && int.TryParse(r.Cells[column].Trim(), out var n) ? n : (int?)null)
+                .Select(r => column < r.Cells.Length && int.TryParse(r.Cells[column].Trim().TrimEnd('.', ')'), out var n) ? n : (int?)null)
                 .Where(n => n is not null).Select(n => n!.Value).ToList()).Where(l => l.Count > 0).ToList();
             var countsUp = perBlock.Count > 0 && perBlock.All(l => l[0] == 1 && l.Zip(l.Skip(1), (a, b) => b >= a).All(x => x));
             var small = ints.All(n => n is >= 1 and <= 30);

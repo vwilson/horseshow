@@ -11,7 +11,9 @@ public class RiderConfiguration : IEntityTypeConfiguration<Rider>
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.DisplayName).HasMaxLength(200);
         b.Property(x => x.Barn).HasMaxLength(200);
+        b.Property(x => x.Group).HasMaxLength(100);
         b.HasIndex(x => x.Name);
+        b.HasIndex(x => x.Group);
         b.HasMany(x => x.Aliases).WithOne(x => x.Rider).HasForeignKey(x => x.RiderId).OnDelete(DeleteBehavior.Cascade);
     }
 }

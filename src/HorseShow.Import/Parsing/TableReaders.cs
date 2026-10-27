@@ -13,6 +13,25 @@ public static partial class TableReaders
     [GeneratedRegex(@"\s{2,}|\t")]
     private static partial Regex MultiSpace();
 
+    [GeneratedRegex(@"^(?<p>\d{1,3}(?:st|nd|rd|th)?[.)]?)\s+(?<rest>\S.*)$", RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingPlacing();
+
+    /// <summary>"1. Blue Moon" is two cells: the placing and the name.</summary>
+    private static string[] PeelLeadingPlacing(string[] cells)
+    {
+        if (cells.Length == 0)
+        {
+            return cells;
+        }
+
+        var m = LeadingPlacing().Match(cells[0]);
+        return m.Success ? [m.Groups["p"].Value, m.Groups["rest"].Value, .. cells[1..]] : cells;
+    }
+
+    /// <summary>" - ", " – " or " — " between cells, as in "1. Blue Moon - Jane Smith - Smith Stables".</summary>
+    [GeneratedRegex(@"\s+[-–—]\s+")]
+    public static partial Regex DashSeparated();
+
     /// <summary>
     /// Pasted text. Picks the delimiter that gives the most consistent column count across lines:
     /// tab, comma, pipe, semicolon, then runs of two or more spaces (PDF copies, fixed-width listings).
@@ -36,6 +55,7 @@ public static partial class TableReaders
             {
                 null => [line.Trim()],
                 ' ' => MultiSpace().Split(line.Trim()),
+                '-' => PeelLeadingPlacing(DashSeparated().Split(line.Trim())),
                 _ => SplitDelimited(line, delimiter.Value),
             };
             rows.Add(new RawRow(i + 1, cells.Select(c => c.Trim()).ToArray()));
@@ -166,6 +186,14 @@ public static class DelimiterDetector
         if (spaceScore > best.Score)
         {
             best = (' ', "spaces", spaceScore);
+        }
+
+        // Results-site listings: "1. Horse - Rider - Owner". A lone "Class 12 - Name" heading also splits,
+        // which the classifier tolerates, so this needs clear majority support to win.
+        var dashScore = Score(nonEmpty, l => TableReaders.DashSeparated().Split(l.Trim()).Length);
+        if (dashScore > best.Score && dashScore >= 0.6)
+        {
+            best = ('-', "dashes", dashScore);
         }
 
         return best.Score > 0 ? (best.Delimiter, best.Name) : (null, "none");

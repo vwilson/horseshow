@@ -460,6 +460,14 @@ win-x64 publish. MSIX and Velopack are documented, not wired.
 
 ---
 
+## 10b. Added after the phases
+
+- **Rider groups** (`Rider.Group`): age/eligibility brackets; standings filter or sections per
+  group, each ranked on its own; bulk assignment on the Riders page; Group column in exports.
+- **Dash-separated listings**: `1. Horse - Rider - Owner` lines parse as four cells, with the
+  leading list number peeled off as the placing. Added ahead of the first Saddle Horse Report
+  sample; the real format may still need a synonym or heading pattern.
+
 ## 11. Open questions
 
 Answers change the defaults; none of them block Phase 0 or 1.

@@ -1,9 +1,13 @@
+@inject ParticipantsViewService Participants
+
 <MudDialog>
     <DialogContent>
         <MudForm @ref="_form">
             <MudTextField @bind-Value="Model.Name" Label="Name" Required="true" RequiredError="Name is required" AutoFocus="true" />
             <MudTextField @bind-Value="Model.DisplayName" Label="Display name" HelperText="Optional; shown instead of the name in grids" Class="mt-2" />
             <MudTextField @bind-Value="Model.Barn" Label="Barn / team" Class="mt-2" />
+            <MudAutocomplete T="string" @bind-Value="Model.Group" Label="Group" Class="mt-2" SearchFunc="SearchGroups" CoerceValue="true" CoerceText="true"
+                             ResetValueOnEmptyText="true" MinCharacters="0" Clearable="true" HelperText="Age or eligibility bracket, e.g. 18 &amp; Over, 50 &amp; Over, Juvenile. Used to section standings." />
             <MudTextField @bind-Value="Model.Notes" Label="Notes" Lines="2" Class="mt-2" />
             <AliasEditor Aliases="Model.Aliases" Class="mt-4" />
         </MudForm>
@@ -19,6 +23,21 @@
     [Parameter] public RiderEdit Model { get; set; } = new();
 
     private MudForm _form = default!;
+    private List<string> _groups = [];
+
+    protected override async Task OnInitializedAsync() => _groups = await Participants.ListRiderGroupsAsync();
+
+    private Task<IEnumerable<string>> SearchGroups(string? text, CancellationToken ct)
+    {
+        var typed = text?.Trim() ?? string.Empty;
+        var hits = _groups.Where(g => typed.Length == 0 || g.Contains(typed, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (typed.Length > 0 && !hits.Any(g => string.Equals(g, typed, StringComparison.OrdinalIgnoreCase)))
+        {
+            hits.Insert(0, typed);
+        }
+
+        return Task.FromResult<IEnumerable<string>>(hits);
+    }
 
     private async Task Save()
     {

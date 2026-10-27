@@ -1,0 +1,30 @@
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-2">Group for @Count selected rider(s). Leave empty to clear.</MudText>
+        <MudAutocomplete T="string" @bind-Value="_value" Label="Group" SearchFunc="Search" CoerceValue="true" CoerceText="true" MinCharacters="0" Clearable="true" AutoFocus="true" data-testid="group-input" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Dialog.Close(DialogResult.Ok(_value))" data-testid="group-confirm">Apply</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public List<string> Groups { get; set; } = [];
+    [Parameter] public int Count { get; set; }
+
+    private string? _value;
+
+    private Task<IEnumerable<string>> Search(string? text, CancellationToken ct)
+    {
+        var typed = text?.Trim() ?? string.Empty;
+        var hits = Groups.Where(g => typed.Length == 0 || g.Contains(typed, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (typed.Length > 0 && !hits.Any(g => string.Equals(g, typed, StringComparison.OrdinalIgnoreCase)))
+        {
+            hits.Insert(0, typed);
+        }
+
+        return Task.FromResult<IEnumerable<string>>(hits);
+    }
+}

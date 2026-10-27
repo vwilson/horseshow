@@ -6,7 +6,9 @@ public sealed record StandingsOptions(
     StandingsBasis Basis,
     int? DivisionId = null,
     int? TopNShows = null,
-    int? MinShows = null);
+    int? MinShows = null,
+    /// <summary>Only results whose rider is in this group. Empty string means riders with no group.</summary>
+    string? RiderGroup = null);
 
 /// <summary>One show's contribution to a competitor's line.</summary>
 public sealed record ShowPoints(int ShowId, string ShowName, DateOnly Date, decimal Points, int Classes, bool Counted);
@@ -18,6 +20,8 @@ public sealed class StandingLine
     public int? HorseId { get; init; }
     public required string Name { get; init; }
     public string? SecondaryName { get; init; }
+    /// <summary>The rider's group at the time of computation, for export and sectioned views.</summary>
+    public string? RiderGroup { get; init; }
 
     public int Rank { get; set; }
     public decimal TotalPoints { get; init; }
@@ -50,6 +54,13 @@ public sealed class StandingsCalculator
             scoped = scoped.Where(r => r.ShowClass!.DivisionId == divisionId);
         }
 
+        if (options.RiderGroup is { } wantedGroup)
+        {
+            scoped = wantedGroup.Length == 0
+                ? scoped.Where(r => r.Rider is not null && string.IsNullOrWhiteSpace(r.Rider.Group))
+                : scoped.Where(r => string.Equals(r.Rider?.Group?.Trim(), wantedGroup.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
         var lines = new List<StandingLine>();
         foreach (var group in scoped.Select(r => (Key: KeyFor(r, options.Basis), Result: r)).Where(x => x.Key is not null).GroupBy(x => x.Key!))
         {
@@ -78,6 +89,7 @@ public sealed class StandingsCalculator
                 HorseId = options.Basis != StandingsBasis.Rider ? first.HorseId : null,
                 Name = NameFor(first, options.Basis),
                 SecondaryName = options.Basis == StandingsBasis.Combination ? HorseName(first) : null,
+                RiderGroup = options.Basis == StandingsBasis.Horse ? null : first.Rider?.Group,
                 TotalPoints = total,
                 CountedPoints = counted,
                 Shows = perShow.Count,

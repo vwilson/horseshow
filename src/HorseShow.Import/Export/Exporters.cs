@@ -134,6 +134,7 @@ public static class Exporters
         yield return "Rank";
         yield return e.Basis == "Horse" ? "Horse" : "Rider";
         if (e.Basis == "Combination") yield return "Horse";
+        if (e.Basis != "Horse") yield return "Group";
         yield return "Shows";
         yield return "Classes";
         yield return "1st";
@@ -149,6 +150,7 @@ public static class Exporters
         yield return l.Rank;
         yield return l.Name;
         if (e.Basis == "Combination") yield return l.SecondaryName;
+        if (e.Basis != "Horse") yield return l.RiderGroup;
         yield return l.Shows;
         yield return l.Classes;
         yield return l.Firsts;

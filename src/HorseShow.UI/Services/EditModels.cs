@@ -139,12 +139,13 @@ public sealed class RiderEdit
     public string Name { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
     public string? Barn { get; set; }
+    public string? Group { get; set; }
     public string? Notes { get; set; }
     public List<string> Aliases { get; set; } = [];
 
     public static RiderEdit From(Rider r) => new()
     {
-        Id = r.Id, Name = r.Name, DisplayName = r.DisplayName, Barn = r.Barn, Notes = r.Notes,
+        Id = r.Id, Name = r.Name, DisplayName = r.DisplayName, Barn = r.Barn, Group = r.Group, Notes = r.Notes,
         Aliases = r.Aliases.Select(a => a.Alias).ToList(),
     };
 }
