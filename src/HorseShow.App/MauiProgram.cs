@@ -20,7 +20,10 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        var paths = new DefaultAppPaths(Path.Combine(FileSystem.AppDataDirectory, "HorseShow"));
+        // %LOCALAPPDATA%\HorseShow, as documented in the README. FileSystem.AppDataDirectory would put an
+        // unpackaged app under %LOCALAPPDATA%\<Publisher>\<ApplicationId>\Data, which is harder to find and back up.
+        var dataDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HorseShow");
+        var paths = new DefaultAppPaths(dataDirectory);
         builder.Services.AddSingleton<IAppPaths>(paths);
         builder.Services.AddSingleton<IUserSettings, MauiUserSettings>();
         builder.Services.AddSingleton<IClipboardService, MauiClipboardService>();
