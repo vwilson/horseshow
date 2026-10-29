@@ -1,3 +1,5 @@
+using HorseShow.App.Platform;
+
 namespace HorseShow.App;
 
 public partial class App : Application
@@ -25,8 +27,16 @@ public partial class App : Application
             window.Y = Preferences.Default.Get("window.y", 100.0);
         }
 
+        window.Created += (_, _) => WindowPlacement.EnsureOnScreen(window);
+
         window.Destroying += (_, _) =>
         {
+            // Keep the last restored frame rather than a minimized or maximized one.
+            if (!WindowPlacement.IsRestored(window))
+            {
+                return;
+            }
+
             Preferences.Default.Set("window.width", window.Width);
             Preferences.Default.Set("window.height", window.Height);
             Preferences.Default.Set("window.x", window.X);

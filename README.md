@@ -10,8 +10,10 @@ See [docs/PLAN.md](docs/PLAN.md) for the implementation plan and phases.
 All five planned phases are built. Latest: wide-layout import (one column per class),
 drag-and-drop files, standings export to CSV/Excel and print, show results export, backup
 and restore, database relocation, rider/horse merge, remembered theme and window state,
-and a tagged-release workflow. The MAUI host has not yet been built on a Windows machine;
-see "Distribution". Target framework is `net10.0` until the .NET 11 GA toolchain ships;
+and a tagged-release workflow. On Windows the MAUI host builds, launches, creates and seeds
+its database, and runs standalone from a self-contained publish (see "Distribution"); the
+native file pickers, save dialogs, clipboard, print and drag-and-drop have not yet been
+exercised by hand. Target framework is `net10.0` until the .NET 11 GA toolchain ships;
 flip `AppTargetFramework` in `Directory.Build.props` and the two version properties in
 `Directory.Packages.props` to move.
 

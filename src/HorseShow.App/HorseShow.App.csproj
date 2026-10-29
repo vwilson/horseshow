@@ -7,7 +7,8 @@
     so this project cannot build there and `dotnet build HorseShow.slnx` is Windows-only too.
   -->
   <PropertyGroup>
-    <TargetFrameworks>$(AppTargetFramework)-windows$(WindowsTargetPlatformVersion)</TargetFrameworks>
+    <!-- Singular on purpose: with TargetFrameworks, `dotnet publish -r win-x64` fails with NETSDK1129 unless -f is given. -->
+    <TargetFramework>$(AppTargetFramework)-windows$(WindowsTargetPlatformVersion)</TargetFramework>
     <OutputType>Exe</OutputType>
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
