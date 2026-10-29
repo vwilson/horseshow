@@ -3,8 +3,11 @@
 Brief for a Claude Code session running **on a Windows machine** in a local clone of this
 repository. Everything else in the repo was developed and tested on Linux, where the MAUI
 Windows target cannot finish building (the WinUI XAML compiler and MakePri are Windows-only).
-A cloud session already proved the host's C# and XAML compile against MAUI 10.0.120 and fixed
-the data path, publish settings and release workflow; **the app has never been launched.**
+Status after the first Windows run (commit 0810ffb): the host builds, launches, creates and
+seeds `%LOCALAPPDATA%\HorseShow\horseshow.db`, and runs standalone from a self-contained
+publish. **Still unverified by hand: the native file picker, drag-and-drop, clipboard paste,
+the save dialogs behind Export and "Save a copy…", print, and window state across a restart.**
+Steps 1, 2 and 4 below are done; step 3 is the remaining work.
 
 ## Setup
 
