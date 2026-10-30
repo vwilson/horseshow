@@ -5,9 +5,11 @@ repository. Everything else in the repo was developed and tested on Linux, where
 Windows target cannot finish building (the WinUI XAML compiler and MakePri are Windows-only).
 Status after the first Windows run (commit 0810ffb): the host builds, launches, creates and
 seeds `%LOCALAPPDATA%\HorseShow\horseshow.db`, and runs standalone from a self-contained
-publish. **Still unverified by hand: the native file picker, drag-and-drop, clipboard paste,
-the save dialogs behind Export and "Save a copy…", print, and window state across a restart.**
-Steps 1, 2 and 4 below are done; step 3 is the remaining work.
+publish. Window size and position survive a restart, including a close while minimized or
+maximized and a saved position that is off every screen. **Still unverified by hand: the
+native file picker, drag-and-drop, clipboard paste, the save dialogs behind Export and "Save a
+copy…", print, and dark mode across a restart.** Steps 1, 2 and 4 below are done; step 3 is the
+remaining work.
 
 ## Setup
 
