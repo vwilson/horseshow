@@ -26,6 +26,32 @@ public class MaintenanceTests
     }
 
     [Fact]
+    public async Task Restore_from_an_uploaded_file_brings_back_deleted_data()
+    {
+        await using var f = await ServiceFixture.CreateAsync();
+        var season = await f.Seasons.SaveAsync(new SeasonEdit { Name = "2026", Year = 2026 });
+        var upload = await File.ReadAllBytesAsync((await f.Maintenance.BackupNowAsync()).Path);
+        await f.Seasons.DeleteAsync(season.Id);
+
+        // The upload is staged in a temp file and deleted afterwards, which Windows refuses while anything holds it open.
+        await f.Maintenance.RestoreFromStreamAsync(new MemoryStream(upload));
+
+        Assert.Equal((1, 0, 0), await f.Maintenance.CountsAsync());
+    }
+
+    [Fact]
+    public async Task A_backup_can_be_deleted_right_after_restoring_it()
+    {
+        await using var f = await ServiceFixture.CreateAsync();
+        var backup = await f.Maintenance.BackupNowAsync();
+        await f.Maintenance.RestoreAsync(backup.Path);
+
+        await f.Maintenance.DeleteBackupAsync(backup);
+
+        Assert.False(File.Exists(backup.Path));
+    }
+
+    [Fact]
     public async Task Restore_rejects_a_file_that_is_not_sqlite()
     {
         await using var f = await ServiceFixture.CreateAsync();

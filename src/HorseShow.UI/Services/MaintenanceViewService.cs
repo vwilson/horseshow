@@ -68,7 +68,15 @@ public sealed class MaintenanceViewService(
 
         // SQLite's online backup API copies pages into the live database under its own locks,
         // so nothing has to be closed, moved, or deleted. Pooled connections see the new content.
-        await using (var source = new SqliteConnection($"Data Source={sourcePath};Mode=ReadOnly"))
+        // The source is not pooled: a pooled connection keeps its file open after dispose, and
+        // Windows then refuses to delete it (the uploaded temp file, or the backup just restored).
+        var sourceConnectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = sourcePath,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString();
+        await using (var source = new SqliteConnection(sourceConnectionString))
         await using (var target = new SqliteConnection(options.ConnectionString))
         {
             await source.OpenAsync(ct);
