@@ -102,17 +102,32 @@
 
     private async Task BackupNow()
     {
-        var b = await Maintenance.BackupNowAsync();
-        Snackbar.Add($"Backed up to {b.Name}.", Severity.Success);
+        try
+        {
+            var b = await Maintenance.BackupNowAsync();
+            Snackbar.Add($"Backed up to {b.Name}.", Severity.Success);
+        }
+        catch (Exception ex) when (IsFileError(ex))
+        {
+            Snackbar.Add($"Could not back up: {ex.Message}", Severity.Error);
+        }
+
         _backups = await Maintenance.ListBackupsAsync();
     }
 
     private async Task Download()
     {
-        var path = await Maintenance.DownloadBackupAsync();
-        if (path is not null)
+        try
         {
-            Snackbar.Add($"Saved to {path}.", Severity.Success);
+            var path = await Maintenance.DownloadBackupAsync();
+            if (path is not null)
+            {
+                Snackbar.Add($"Saved to {path}.", Severity.Success);
+            }
+        }
+        catch (Exception ex) when (IsFileError(ex))
+        {
+            Snackbar.Add($"Could not save a copy: {ex.Message}", Severity.Error);
         }
 
         _backups = await Maintenance.ListBackupsAsync();
@@ -150,17 +165,29 @@
             Snackbar.Add("Database restored.", Severity.Success);
             Nav.NavigateTo("/", forceLoad: true);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException || IsFileError(ex))
         {
-            Snackbar.Add(ex.Message, Severity.Error);
+            Snackbar.Add($"Could not restore: {ex.Message}", Severity.Error);
+            _backups = await Maintenance.ListBackupsAsync(); // shows the pre-restore copy, if one was taken
         }
     }
 
     private async Task DeleteBackup(BackupFile file)
     {
-        await Maintenance.DeleteBackupAsync(file);
+        try
+        {
+            await Maintenance.DeleteBackupAsync(file);
+        }
+        catch (Exception ex) when (IsFileError(ex))
+        {
+            Snackbar.Add($"Could not delete {file.Name}: {ex.Message}", Severity.Error);
+        }
+
         _backups = await Maintenance.ListBackupsAsync();
     }
+
+    // A locked or unwritable file, or SQLite refusing it: reported on the page instead of breaking it.
+    private static bool IsFileError(Exception ex) => ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException;
 
     private async Task MoveDatabase()
     {
