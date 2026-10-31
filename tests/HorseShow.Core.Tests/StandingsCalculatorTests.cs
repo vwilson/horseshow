@@ -112,6 +112,22 @@ public class StandingsCalculatorTests
     }
 
     [Fact]
+    public void Classes_at_the_same_show_count_as_one_show()
+    {
+        // Two wins at show 1, shaped like a no-tracking query: each result row has its own Show object.
+        var results = new[] { R(ShowOn(1, 4), Jane, Blue, 1, 10), R(ShowOn(1, 4), Jane, Blue, 1, 10), R(ShowOn(2, 5), Jane, Blue, 2, 6) };
+
+        var line = Assert.Single(new StandingsCalculator().Compute(results, new StandingsOptions(StandingsBasis.Rider, TopNShows: 1, MinShows: 3)));
+
+        Assert.Equal(2, line.Shows);
+        Assert.Equal(3, line.Classes);
+        Assert.Equal(20, line.CountedPoints); // the best single show is the one with both wins
+        Assert.False(line.Eligible); // two shows, not three
+        var first = line.PerShow[0];
+        Assert.Equal((1, 20m, 2), (first.ShowId, first.Points, first.Classes));
+    }
+
+    [Fact]
     public void Division_filter_limits_results_to_that_division()
     {
         var s1 = ShowOn(1, 4);

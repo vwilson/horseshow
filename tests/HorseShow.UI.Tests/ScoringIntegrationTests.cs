@@ -118,6 +118,29 @@ public class ScoringIntegrationTests
     }
 
     [Fact]
+    public async Task Classes_at_the_same_show_count_as_one_show_in_standings()
+    {
+        await using var f = await ServiceFixture.CreateAsync();
+        var season = await f.Seasons.SaveAsync(new SeasonEdit
+        {
+            Name = "2026", Year = 2026, DefaultPointScheduleId = await ClassicScheduleIdAsync(f), TopNShowsCounted = 1, MinShowsForAward = 2,
+        });
+        var show = await f.Shows.SaveShowAsync(new ShowEdit { SeasonId = season.Id, Name = "S", StartDate = new DateTime(2026, 4, 1) });
+        foreach (var name in new[] { "C1", "C2" })
+        {
+            var cls = await f.Shows.SaveClassAsync(new ShowClassEdit { ShowId = show.Id, Name = name });
+            await f.Shows.SaveResultAsync(new ResultRow { ShowClassId = cls.Id, Placing = 1, Rider = new NameOption(null, "A") });
+        }
+
+        var line = Assert.Single((await f.Standings.GetAsync(season.Id, null, null))!.Lines);
+
+        // Two wins at one show: both count under "best 1 show", and one show is short of "at least 2 shows".
+        Assert.Equal(1, line.Shows);
+        Assert.Equal(20, line.CountedPoints);
+        Assert.False(line.Eligible);
+    }
+
+    [Fact]
     public async Task Recalculate_preview_and_apply_round_trip()
     {
         await using var f = await ServiceFixture.CreateAsync();

@@ -67,9 +67,14 @@ public sealed class StandingsCalculator
             var items = group.Select(x => x.Result).ToList();
             var first = items[0];
 
+            // By id, not by instance: no-tracking queries give every result row its own Show object.
             var perShow = items
-                .GroupBy(r => r.ShowClass!.Show!)
-                .Select(g => new ShowPoints(g.Key.Id, g.Key.Name, g.Key.StartDate, g.Sum(r => r.Points ?? 0m), g.Count(), Counted: true))
+                .GroupBy(r => r.ShowClass!.Show!.Id)
+                .Select(g =>
+                {
+                    var show = g.First().ShowClass!.Show!;
+                    return new ShowPoints(show.Id, show.Name, show.StartDate, g.Sum(r => r.Points ?? 0m), g.Count(), Counted: true);
+                })
                 .OrderByDescending(s => s.Points).ThenBy(s => s.Date)
                 .ToList();
 
