@@ -39,6 +39,13 @@ public sealed class DatabaseInitializer(
         var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
         var target = Path.Combine(options.BackupDirectory, $"horseshow-{stamp}-{label}.db");
 
+        // VACUUM INTO refuses to overwrite, and two backups can land in the same second
+        // (a double click, or "Back up now" then "Save a copy").
+        for (var n = 2; File.Exists(target); n++)
+        {
+            target = Path.Combine(options.BackupDirectory, $"horseshow-{stamp}-{label}-{n}.db");
+        }
+
         await using var connection = new SqliteConnection(options.ConnectionString);
         await connection.OpenAsync(ct);
         await using var cmd = connection.CreateCommand();

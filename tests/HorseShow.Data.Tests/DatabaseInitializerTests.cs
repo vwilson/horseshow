@@ -117,4 +117,21 @@ public class DatabaseInitializerTests
         Assert.Equal(1, await copy.Seasons.CountAsync());
         SqliteConnection.ClearAllPools();
     }
+
+    [Fact]
+    public async Task Backups_in_the_same_second_each_get_their_own_file()
+    {
+        await using var tmp = new TempDatabase();
+        await tmp.Initializer.InitializeAsync();
+
+        // Unless three backups take over a second in total, at least two of them share a timestamp.
+        var paths = new List<string>();
+        for (var i = 0; i < 3; i++)
+        {
+            paths.Add(await tmp.Initializer.BackupAsync("manual"));
+        }
+
+        Assert.Equal(3, paths.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.All(paths, p => Assert.True(new FileInfo(p).Length > 0));
+    }
 }
