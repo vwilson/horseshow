@@ -1,0 +1,56 @@
+using HorseShow.UI.Platform;
+using HorseShow.UI.Services;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace HorseShow.UI.Tests;
+
+/// <summary>A migrated temp database plus the view services wired as the hosts wire them.</summary>
+public sealed class ServiceFixture : IAsyncDisposable
+{
+    public TempDatabase Db { get; } = new();
+    public ActiveSeasonService Active { get; }
+    public SeasonsViewService Seasons { get; }
+    public ShowsViewService Shows { get; }
+    public ParticipantsViewService Participants { get; }
+    public DashboardViewService Dashboard { get; }
+    public StandingsViewService Standings { get; }
+    public SchedulesViewService Schedules { get; }
+    public MaintenanceViewService Maintenance { get; }
+    public string ExportDirectory { get; }
+
+    private ServiceFixture()
+    {
+        Active = new ActiveSeasonService(Db.Factory);
+        Seasons = new SeasonsViewService(Db.Factory, Active);
+        Shows = new ShowsViewService(Db.Factory);
+        Participants = new ParticipantsViewService(Db.Factory);
+        Standings = new StandingsViewService(Db.Factory);
+        Schedules = new SchedulesViewService(Db.Factory);
+        Dashboard = new DashboardViewService(Db.Factory, Active, Standings);
+        ExportDirectory = Path.Combine(Db.Directory, "exports");
+        var paths = new DefaultAppPaths(Db.Directory);
+        Maintenance = new MaintenanceViewService(Db.Initializer, Db.Options, paths, Db.Factory, new FolderFileSave(ExportDirectory));
+    }
+
+    public static async Task<ServiceFixture> CreateAsync()
+    {
+        var f = new ServiceFixture();
+        await f.Db.Initializer.InitializeAsync();
+        return f;
+    }
+
+    public ValueTask DisposeAsync() => Db.DisposeAsync();
+}
+
+/// <summary>Writes "saved" files into a folder, like the dev host does.</summary>
+public sealed class FolderFileSave(string directory) : IFileSaveService
+{
+    public async Task<string?> SaveAsync(string suggestedFileName, Stream content)
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, suggestedFileName);
+        await using var f = File.Create(path);
+        await content.CopyToAsync(f);
+        return path;
+    }
+}

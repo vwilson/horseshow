@@ -1,0 +1,22 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Single switch for the whole solution. Flip to net11.0 once the .NET 11 GA SDK,
+      MAUI workload, EF Core 11 and MudBlazor builds are available. The MAUI host
+      appends the Windows platform suffix to this value.
+    -->
+    <AppTargetFramework>net10.0</AppTargetFramework>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <RootNamespace>$(MSBuildProjectName)</RootNamespace>
+    <Authors>Victor Wilson</Authors>
+    <Product>HorseShow</Product>
+  </PropertyGroup>
+</Project>

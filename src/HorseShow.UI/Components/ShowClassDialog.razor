@@ -1,0 +1,61 @@
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="4" sm="3">
+                    <MudTextField @bind-Value="Model.ClassNumber" Label="Class #" AutoFocus="true" />
+                </MudItem>
+                <MudItem xs="8" sm="9">
+                    <MudTextField @bind-Value="Model.Name" Label="Class name" Required="true" RequiredError="Name is required" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="Model.DivisionId" Label="Division" Clearable="true">
+                        @foreach (var d in Divisions)
+                        {
+                            <MudSelectItem T="int?" Value="d.Id">@d.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="Model.ClassType" Label="Results are">
+                        <MudSelectItem Value="ClassType.Placed">Placings</MudSelectItem>
+                        <MudSelectItem Value="ClassType.Scored">Scores</MudSelectItem>
+                        <MudSelectItem Value="ClassType.Both">Scores and placings</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField T="int?" @bind-Value="Model.EntryCount" Label="Entries" Min="0" HelperText="For entry-scaled points" />
+                </MudItem>
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="Model.JudgeName" Label="Judge" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.Notes" Label="Notes" Lines="2" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public ShowClassEdit Model { get; set; } = new();
+    [Parameter] public List<Division> Divisions { get; set; } = [];
+
+    private MudForm _form = default!;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (_form.IsValid)
+        {
+            Dialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    private void Cancel() => Dialog.Cancel();
+}

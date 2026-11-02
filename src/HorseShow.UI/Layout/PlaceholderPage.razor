@@ -1,0 +1,11 @@
+@* Stand-in for pages that arrive in later phases. Keeps nav honest without dead links. *@
+<MudText Typo="Typo.h4" GutterBottom="true">@Title</MudText>
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Construction">
+    Planned for Phase @Phase. @Description
+</MudAlert>
+
+@code {
+    [Parameter, EditorRequired] public required string Title { get; set; }
+    [Parameter, EditorRequired] public int Phase { get; set; }
+    [Parameter] public string? Description { get; set; }
+}

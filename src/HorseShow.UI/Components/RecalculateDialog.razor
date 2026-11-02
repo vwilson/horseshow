@@ -1,0 +1,36 @@
+@using HorseShow.Data
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-2">
+            @Changes.Count result(s) would change. Imported and manually set points are never touched.
+        </MudText>
+        <MudSimpleTable Dense="true" Hover="true" Elevation="0" Style="max-height: 420px; overflow-y: auto">
+            <thead>
+                <tr><th>Show</th><th>Class</th><th>Competitor</th><th style="text-align:right">Place</th><th style="text-align:right">Now</th><th style="text-align:right">After</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Changes)
+                {
+                    <tr>
+                        <td>@c.ShowName</td>
+                        <td>@c.ClassName</td>
+                        <td>@c.Competitor</td>
+                        <td style="text-align:right">@c.Placing</td>
+                        <td style="text-align:right" class="mud-text-secondary">@(c.OldPoints?.ToString("0.###") ?? "—")</td>
+                        <td style="text-align:right"><b>@(c.NewPoints?.ToString("0.###") ?? "—")</b></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => Dialog.Cancel()">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="() => Dialog.Close(DialogResult.Ok(true))" data-testid="apply-recalc">Apply</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public List<PointsChange> Changes { get; set; } = [];
+}

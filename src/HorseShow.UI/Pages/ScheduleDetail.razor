@@ -1,0 +1,168 @@
+@page "/schedules/{Id:int}"
+@page "/schedules/new"
+@inject SchedulesViewService Schedules
+@inject ActiveSeasonService Active
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+@if (_model is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudBreadcrumbs Items="_crumbs" Class="pl-0" />
+    <div class="d-flex align-center mb-4">
+        <MudText Typo="Typo.h4">@(_model.Id == 0 ? "New schedule" : _model.Name)</MudText>
+        @if (_model.IsBuiltIn)
+        {
+            <MudChip T="string" Size="Size.Small" Class="ml-3">built-in, read-only</MudChip>
+        }
+        <MudSpacer />
+        @if (_model.IsBuiltIn)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy" OnClick="Clone">Clone to edit</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Outlined" Class="mr-2" Href="schedules">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="Save" data-testid="save-schedule">Save</MudButton>
+        }
+    </div>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+                <MudTextField @bind-Value="_model.Name" Label="Name" Required="true" ReadOnly="_model.IsBuiltIn" />
+                <MudSelect T="PointScheduleMode" @bind-Value="_model.Mode" Label="Mode" Class="mt-3" ReadOnly="_model.IsBuiltIn">
+                    <MudSelectItem Value="PointScheduleMode.Fixed">Fixed: placing → points</MudSelectItem>
+                    <MudSelectItem Value="PointScheduleMode.ByEntryCount">By entry count: tiers by class size</MudSelectItem>
+                </MudSelect>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-3">
+                    @if (_model.Mode == PointScheduleMode.Fixed)
+                    {
+                        <text>Each placing earns the same points regardless of how many entries competed. A placing with no row earns 0.</text>
+                    }
+                    else
+                    {
+                        <text>Rows are grouped into tiers by minimum entries. A class uses the highest tier not exceeding its entry count. A placing with no row in that tier earns 0.</text>
+                    }
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+                <div class="d-flex align-center mb-2">
+                    <MudText Typo="Typo.h6">Rows</MudText>
+                    <MudSpacer />
+                    @if (!_model.IsBuiltIn)
+                    {
+                        @if (_model.Mode == PointScheduleMode.ByEntryCount)
+                        {
+                            <MudNumericField T="int" @bind-Value="_newTier" Label="Tier (min entries)" Margin="Margin.Dense" Variant="Variant.Outlined" Style="width: 160px" Class="mr-2" Min="1" />
+                        }
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddRow" data-testid="add-row">Add row</MudButton>
+                    }
+                </div>
+                <MudSimpleTable Dense="true" Elevation="0">
+                    <thead>
+                        <tr>
+                            @if (_model.Mode == PointScheduleMode.ByEntryCount) { <th style="width: 160px">Min entries</th> }
+                            <th style="width: 140px">Placing</th>
+                            <th style="width: 160px">Points</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Ordered())
+                        {
+                            <tr @key="row">
+                                @if (_model.Mode == PointScheduleMode.ByEntryCount)
+                                {
+                                    <td><MudNumericField T="int" @bind-Value="row.MinEntries" Min="1" Margin="Margin.Dense" Variant="Variant.Outlined" ReadOnly="_model.IsBuiltIn" HideSpinButtons="true" /></td>
+                                }
+                                <td><MudNumericField T="int" @bind-Value="row.Placing" Min="1" Margin="Margin.Dense" Variant="Variant.Outlined" ReadOnly="_model.IsBuiltIn" HideSpinButtons="true" /></td>
+                                <td><MudNumericField T="decimal" @bind-Value="row.Points" Min="0" Margin="Margin.Dense" Variant="Variant.Outlined" ReadOnly="_model.IsBuiltIn" HideSpinButtons="true" /></td>
+                                <td style="text-align:right">
+                                    @if (!_model.IsBuiltIn)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="() => _model.Rows.Remove(row)" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+                @if (_model.Rows.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mt-2">No rows yet.</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private PointScheduleEdit? _model;
+    private int _newTier = 1;
+    private List<BreadcrumbItem> _crumbs = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is int id)
+        {
+            var schedule = await Schedules.GetAsync(id);
+            if (schedule is null)
+            {
+                Nav.NavigateTo("schedules");
+                return;
+            }
+
+            _model = PointScheduleEdit.From(schedule);
+        }
+        else
+        {
+            await Active.GetAsync();
+            _model = new PointScheduleEdit { SeasonId = Active.Current?.Id, Rows = [new PointScheduleRowEdit { Placing = 1, Points = 10 }] };
+        }
+
+        _crumbs = [new BreadcrumbItem("Point schedules", "schedules"), new BreadcrumbItem(_model.Id == 0 ? "New" : _model.Name, null, disabled: true)];
+    }
+
+    private IEnumerable<PointScheduleRowEdit> Ordered()
+        => _model!.Mode == PointScheduleMode.Fixed
+            ? _model.Rows.OrderBy(r => r.Placing)
+            : _model.Rows.OrderBy(r => r.MinEntries).ThenBy(r => r.Placing);
+
+    private void AddRow()
+    {
+        var tier = _model!.Mode == PointScheduleMode.Fixed ? 0 : _newTier;
+        var inTier = _model.Rows.Where(r => _model.Mode == PointScheduleMode.Fixed || r.MinEntries == tier).ToList();
+        var nextPlacing = inTier.Count == 0 ? 1 : inTier.Max(r => r.Placing) + 1;
+        var last = inTier.OrderBy(r => r.Placing).LastOrDefault();
+        var nextPoints = last is null ? 10m : Math.Max(0, last.Points - 1);
+        _model.Rows.Add(new PointScheduleRowEdit { Placing = nextPlacing, Points = nextPoints, MinEntries = tier });
+    }
+
+    private async Task Save()
+    {
+        try
+        {
+            var saved = await Schedules.SaveAsync(_model!);
+            Snackbar.Add($"Saved \"{saved.Name}\".", Severity.Success);
+            Nav.NavigateTo("schedules");
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Warning);
+        }
+    }
+
+    private async Task Clone()
+    {
+        var copy = await Schedules.CloneAsync(_model!.Id, Active.Current?.Id);
+        Nav.NavigateTo($"schedules/{copy.Id}");
+    }
+}

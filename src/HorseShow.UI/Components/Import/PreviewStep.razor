@@ -1,0 +1,85 @@
+@inject ImportSession Session
+
+@if (Session.Plan is { } plan)
+{
+    <div class="d-flex flex-wrap gap-2 align-center mb-3">
+        <MudChip T="string" Color="Color.Primary" Icon="@Icons.Material.Filled.PlaylistAddCheck">@plan.ImportableRowCount of @plan.RowCount rows will import</MudChip>
+        <MudChip T="string" Icon="@Icons.Material.Filled.Segment">@plan.Classes.Count class(es), @plan.Classes.Count(c => c.ExistingClassId is not null) existing</MudChip>
+        <MudChip T="string" Icon="@Icons.Material.Filled.PersonAdd">@plan.Riders.Count(r => r.CreatesNew) new riders · @plan.Horses.Count(h => h.CreatesNew) new horses</MudChip>
+        @if (plan.ErrorCount > 0) { <MudChip T="string" Color="Color.Error" Icon="@Icons.Material.Filled.Error">@plan.ErrorCount error(s)</MudChip> }
+        @if (plan.WarningCount > 0) { <MudChip T="string" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">@plan.WarningCount warning(s)</MudChip> }
+        @if (plan.HasPointsColumn) { <MudChip T="string" Icon="@Icons.Material.Filled.Lock">points taken from the sheet</MudChip> }
+    </div>
+
+    @foreach (var issue in plan.Issues)
+    {
+        <MudAlert Severity="@(issue.Severity == IssueSeverity.Error ? Severity.Error : Severity.Warning)" Dense="true" Class="mb-2">@issue.Message</MudAlert>
+    }
+
+    @if (plan.Classes.Any(c => c.ExistingResultCount > 0))
+    {
+        <MudPaper Class="pa-3 mb-3" Outlined="true" Elevation="0">
+            <MudText Typo="Typo.subtitle2">Some classes already have results. When the same rider and horse appear again:</MudText>
+            <MudRadioGroup T="DuplicatePolicy" @bind-Value="plan.DuplicatePolicy">
+                <MudRadio T="DuplicatePolicy" Value="DuplicatePolicy.Skip">Skip the sheet's row, keep what is there</MudRadio>
+                <MudRadio T="DuplicatePolicy" Value="DuplicatePolicy.Replace">Replace with the sheet's row</MudRadio>
+                <MudRadio T="DuplicatePolicy" Value="DuplicatePolicy.AddAnyway">Add anyway (two results)</MudRadio>
+            </MudRadioGroup>
+        </MudPaper>
+    }
+
+    <MudExpansionPanels MultiExpansion="true">
+        @foreach (var cls in plan.Classes)
+        {
+            <MudExpansionPanel Expanded="true">
+                <TitleContent>
+                    <div class="d-flex align-center gap-3" style="width: 100%">
+                        <MudText Typo="Typo.subtitle1">@cls.Display</MudText>
+                        @if (cls.ExistingClassId is not null)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Info">existing: @cls.ExistingClassName (@cls.ExistingResultCount results)</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small">new class</MudChip>
+                        }
+                        @if (cls.EntryCount is int n) { <MudText Typo="Typo.body2" Class="mud-text-secondary">@n entries</MudText> }
+                        <MudSpacer />
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary mr-2">@cls.Rows.Count(r => r.WillImport) / @cls.Rows.Count</MudText>
+                    </div>
+                </TitleContent>
+                <ChildContent>
+                    @foreach (var issue in cls.Issues)
+                    {
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2">@issue.Message</MudAlert>
+                    }
+                    <MudSimpleTable Dense="true" Hover="true" Elevation="0" Class="preview-table">
+                        <thead>
+                            <tr><th style="width: 40px"></th><th style="width: 70px">Place</th><th style="width: 70px">Back #</th><th>Rider</th><th>Horse</th><th style="width: 80px">Score</th><th style="width: 80px">Points</th><th>Notes</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in cls.Rows)
+                            {
+                                <tr style="@(row.WillImport ? "" : "opacity: 0.5")">
+                                    <td><MudCheckBox T="bool" Value="row.Include" ValueChanged="v => row.Include = v" Disabled="row.HasErrors" Dense="true" Size="Size.Small" /></td>
+                                    <td>@(row.Status == PlacingStatus.Placed ? row.Placing?.ToString() : row.Status.ToString())</td>
+                                    <td>@row.BackNumber</td>
+                                    <td>@row.RiderText</td>
+                                    <td>@row.HorseText</td>
+                                    <td>@row.Score?.ToString("0.###")</td>
+                                    <td>@row.Points?.ToString("0.###")</td>
+                                    <td>
+                                        @foreach (var i in row.Issues)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="@(i.Severity == IssueSeverity.Error ? Color.Error : Color.Warning)" Variant="Variant.Text">@i.Message</MudChip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </ChildContent>
+            </MudExpansionPanel>
+        }
+    </MudExpansionPanels>
+}

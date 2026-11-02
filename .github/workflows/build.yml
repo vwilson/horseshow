@@ -1,0 +1,84 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # Everything except the MAUI host: fast feedback, runs the test suite.
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # dotnet restore takes one project at a time, and the solution includes the Windows-only MAUI host.
+      - run: for project in src/HorseShow.Web tests/HorseShow.Core.Tests tests/HorseShow.Data.Tests tests/HorseShow.UI.Tests tests/HorseShow.Import.Tests; do dotnet restore "$project"; done
+      - run: dotnet build src/HorseShow.Web -c Release --no-restore
+      - run: dotnet test tests/HorseShow.Core.Tests -c Release --no-restore --logger "trx;LogFileName=core.trx"
+      - run: dotnet test tests/HorseShow.Data.Tests -c Release --no-restore --logger "trx;LogFileName=data.trx"
+      - run: dotnet test tests/HorseShow.UI.Tests -c Release --no-restore --logger "trx;LogFileName=ui.trx"
+      - run: dotnet test tests/HorseShow.Import.Tests -c Release --no-restore --logger "trx;LogFileName=import.trx"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/TestResults/*.trx"
+
+  # The Windows desktop host. Needs the MAUI workload; builds but does not run.
+  # Also runs the tests: Windows refuses to delete open files, and backup and restore depend on that.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet workload install maui-windows
+      # Restore as Release, like the build: the MAUI SDK turns on ReadyToRun for Release, so the app
+      # needs the win-x64 runtime and Crossgen2 packs, which a Debug restore skips.
+      - run: dotnet restore HorseShow.slnx -p:Configuration=Release
+      - run: dotnet build HorseShow.slnx -c Release --no-restore
+      - run: dotnet test tests/HorseShow.Core.Tests -c Release --no-build
+      - run: dotnet test tests/HorseShow.Data.Tests -c Release --no-build
+      - run: dotnet test tests/HorseShow.UI.Tests -c Release --no-build
+      - run: dotnet test tests/HorseShow.Import.Tests -c Release --no-build
+      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --self-contained -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HorseShow-win-x64
+          path: publish
+
+  # Tagged releases: unpackaged self-contained win-x64 build, zipped. See README "Distribution".
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [core, windows]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet workload install maui-windows
+      # ApplicationDisplayVersion must be a plain version ("0.1.0"); the tag carries a "v" prefix.
+      - id: version
+        shell: pwsh
+        run: |
+          "number=$($env:GITHUB_REF_NAME.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+      - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --self-contained -o publish -p:ApplicationDisplayVersion=${{ steps.version.outputs.number }}
+      - run: Compress-Archive -Path publish\* -DestinationPath HorseShow-${{ github.ref_name }}-win-x64.zip
+        shell: pwsh
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: HorseShow-${{ github.ref_name }}-win-x64.zip
+          generate_release_notes: true

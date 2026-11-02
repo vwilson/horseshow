@@ -1,0 +1,77 @@
+@page "/import/history"
+@implements IDisposable
+@inject ImportViewService Import
+@inject ActiveSeasonService Active
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">Import history</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="import" StartIcon="@Icons.Material.Filled.UploadFile">Import results</MudButton>
+</div>
+
+@if (_season is null)
+{
+    <MudAlert Severity="Severity.Info">Create or activate a season first.</MudAlert>
+}
+else
+{
+    <MudTable T="ImportBatchRow" Items="_rows" Dense="true" Hover="true" Loading="_rows is null">
+        <HeaderContent>
+            <MudTh>When</MudTh>
+            <MudTh>Source</MudTh>
+            <MudTh>Show</MudTh>
+            <MudTh Style="text-align:right">Results</MudTh>
+            <MudTh Style="text-align:right">Classes created</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="When">@context.Batch.ImportedAt.ToLocalTime().ToString("MMM d, yyyy HH:mm")</MudTd>
+            <MudTd DataLabel="Source">@context.Batch.Source@(context.Batch.FileName is null ? "" : $" · {context.Batch.FileName}")</MudTd>
+            <MudTd DataLabel="Show">
+                @if (context.Batch.ShowId is int id) { <MudLink Href="@($"shows/{id}")">@context.ShowName</MudLink> } else { <span class="mud-text-secondary">(show removed)</span> }
+            </MudTd>
+            <MudTd Style="text-align:right">@context.ResultCount</MudTd>
+            <MudTd Style="text-align:right">@context.ClassesCreated</MudTd>
+            <MudTd Style="text-align:right">
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Undo" OnClick="() => Undo(context)" data-testid="undo-import">Undo</MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary">No imports in @_season.Name yet.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
+
+@code {
+    private Season? _season;
+    private List<ImportBatchRow>? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Active.Changed += OnSeasonChanged;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _season = await Active.GetAsync();
+        _rows = _season is null ? [] : await Import.ListBatchesAsync(_season.Id);
+    }
+
+    private void OnSeasonChanged() => InvokeAsync(async () => { await LoadAsync(); StateHasChanged(); });
+
+    public void Dispose() => Active.Changed -= OnSeasonChanged;
+
+    private async Task Undo(ImportBatchRow row)
+    {
+        var ok = await DialogService.ShowMessageBoxAsync("Undo this import?",
+            $"Removes {row.ResultCount} result(s) and any classes or show this import created that are now empty. Riders and horses are kept.",
+            yesText: "Undo import", cancelText: "Keep");
+        if (ok != true) return;
+        var (results, classes, show) = await Import.UndoAsync(row.Batch.Id);
+        Snackbar.Add($"Removed {results} result(s), {classes} class(es){(show ? " and the show" : "")}.", Severity.Success);
+        await LoadAsync();
+    }
+}

@@ -1,0 +1,68 @@
+@inject SeasonsViewService Seasons
+
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="8">
+                    <MudTextField @bind-Value="Model.Name" Label="Name" Required="true" RequiredError="Name is required" AutoFocus="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="Model.Year" Label="Year" Min="1990" Max="2100" Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="Model.Organization" Label="Organization / circuit" HelperText="Optional, e.g. 4-H, IEA, USEF" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="Model.StandingsBasis" Label="Standings by">
+                        <MudSelectItem Value="StandingsBasis.Rider">Rider</MudSelectItem>
+                        <MudSelectItem Value="StandingsBasis.Horse">Horse</MudSelectItem>
+                        <MudSelectItem Value="StandingsBasis.Combination">Rider + horse combination</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="int?" @bind-Value="Model.DefaultPointScheduleId" Label="Default point schedule" Clearable="true">
+                        @foreach (var p in _schedules)
+                        {
+                            <MudSelectItem T="int?" Value="p.Id">@p.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int?" @bind-Value="Model.TopNShowsCounted" Label="Count best N shows" Min="1" HelperText="Blank: all shows count" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudNumericField T="int?" @bind-Value="Model.MinShowsForAward" Label="Minimum shows for awards" Min="1" HelperText="Blank: no minimum" />
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public SeasonEdit Model { get; set; } = new();
+
+    private MudForm _form = default!;
+    private List<PointSchedule> _schedules = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _schedules = await Seasons.ListPointSchedulesAsync(Model.Id == 0 ? null : Model.Id);
+    }
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (_form.IsValid)
+        {
+            Dialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    private void Cancel() => Dialog.Cancel();
+}

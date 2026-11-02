@@ -1,0 +1,38 @@
+<MudDialog>
+    <DialogContent>
+        <MudForm @ref="_form">
+            <MudTextField @bind-Value="Model.Name" Label="Division name" Required="true" RequiredError="Name is required" AutoFocus="true" />
+            <MudSelect T="int?" @bind-Value="Model.PointScheduleId" Label="Point schedule override" Clearable="true" Class="mt-3"
+                       HelperText="Blank: use the season default">
+                @foreach (var p in Schedules)
+                {
+                    <MudSelectItem T="int?" Value="p.Id">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+            <MudNumericField @bind-Value="Model.SortOrder" Label="Sort order" Class="mt-3" HelperText="0: add at the end" />
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Save">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public DivisionEdit Model { get; set; } = new();
+    [Parameter] public List<PointSchedule> Schedules { get; set; } = [];
+
+    private MudForm _form = default!;
+
+    private async Task Save()
+    {
+        await _form.ValidateAsync();
+        if (_form.IsValid)
+        {
+            Dialog.Close(DialogResult.Ok(Model));
+        }
+    }
+
+    private void Cancel() => Dialog.Cancel();
+}

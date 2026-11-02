@@ -1,0 +1,72 @@
+@using HorseShow.Import.Resolution
+
+<MudPaper Class="pa-3" Outlined="true" Elevation="0">
+    <MudText Typo="Typo.h6" GutterBottom="true">@Title</MudText>
+    @if (!Visible.Any())
+    {
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@(Items.Count == 0 ? "None in this import." : "All matched exactly.")</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Elevation="0">
+            <thead>
+                <tr><th>In the sheet</th><th style="width: 110px"></th><th style="width: 280px">Will be</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Visible)
+                {
+                    <tr>
+                        <td>
+                            @r.Text
+                            @if (r.Occurrences > 1) { <span class="mud-text-secondary"> ×@r.Occurrences</span> }
+                        </td>
+                        <td>
+                            @switch (r.Status)
+                            {
+                                case ResolutionStatus.Exact:
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">exact</MudChip>
+                                    break;
+                                case ResolutionStatus.Suggested:
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@r.Candidates[0].Score% match</MudChip>
+                                    break;
+                                default:
+                                    <MudChip T="string" Size="Size.Small">new</MudChip>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (r.Status == ResolutionStatus.Exact)
+                            {
+                                <span>@r.ChosenName</span>
+                            }
+                            else
+                            {
+                                <MudSelect T="int?" Value="r.ChosenId" ValueChanged="id => Choose(r, id)" Dense="true" Margin="Margin.Dense" Variant="Variant.Outlined">
+                                    <MudSelectItem T="int?" Value="null"><MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" Class="mr-1" />Create "@r.Text"</MudSelectItem>
+                                    @foreach (var c in r.Candidates)
+                                    {
+                                        <MudSelectItem T="int?" Value="c.Id">@c.Name <span class="mud-text-secondary">(@c.Score%)</span></MudSelectItem>
+                                    }
+                                </MudSelect>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public List<NameResolution> Items { get; set; } = [];
+    [Parameter] public bool ShowExact { get; set; }
+
+    private IEnumerable<NameResolution> Visible => Items.Where(i => ShowExact || i.Status != ResolutionStatus.Exact);
+
+    private static void Choose(NameResolution r, int? id)
+    {
+        r.ChosenId = id;
+        r.ChosenName = id is null ? null : r.Candidates.FirstOrDefault(c => c.Id == id)?.Name;
+    }
+}

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>$(AppTargetFramework)</TargetFramework>
+    <Description>Dev-only Blazor Server host for the shared UI. Fast inner loop with Hot Reload.</Description>
+    <UserSecretsId>horseshow-web-dev</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HorseShow.UI\HorseShow.UI.csproj" />
+  </ItemGroup>
+</Project>

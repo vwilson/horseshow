@@ -1,0 +1,8 @@
+Hunter Under Saddle (8)
+1    204    Blue Moon            Jane Smith
+2    117    Red Sky              Bob Jones
+3    88     Grey Ghost           Ann Lee
+
+Equitation on the Flat (5)
+1    117    Red Sky              Bob Jones
+2    204    Blue Moon            Jane Smith
