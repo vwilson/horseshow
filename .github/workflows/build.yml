@@ -43,13 +43,14 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet workload install maui-windows
-      - run: dotnet restore HorseShow.slnx
+      # Restore as Release, like the build: the MAUI SDK turns on ReadyToRun for Release, so the app
+      # needs the win-x64 runtime and Crossgen2 packs, which a Debug restore skips.
+      - run: dotnet restore HorseShow.slnx -p:Configuration=Release
       - run: dotnet build HorseShow.slnx -c Release --no-restore
       - run: dotnet test tests/HorseShow.Core.Tests -c Release --no-build
       - run: dotnet test tests/HorseShow.Data.Tests -c Release --no-build
       - run: dotnet test tests/HorseShow.UI.Tests -c Release --no-build
       - run: dotnet test tests/HorseShow.Import.Tests -c Release --no-build
-      # No --no-restore: publish needs the win-x64 runtime and ReadyToRun packs, which a Debug restore skips.
       - run: dotnet publish src/HorseShow.App -c Release -r win-x64 --self-contained -o publish
       - uses: actions/upload-artifact@v4
         with:
